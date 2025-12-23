@@ -1,0 +1,75 @@
+name: kaloree
+description: Kaloree - AI-Powered Calorie Tracking
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  
+  # Database - Type-safe SQLite
+  drift: ^2.14.1
+  sqlite3_flutter_libs: ^0.5.18
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  
+  # Secure Storage - For API keys (uses Android Keystore)
+  flutter_secure_storage: ^9.0.0
+  
+  # Camera - Minimal permissions
+  camera: ^0.10.5+7
+  
+  # ML Kit - On-device food detection
+  google_mlkit_image_labeling: ^0.12.0
+  
+  # Image processing (in-memory only)
+  image: ^4.1.4
+  
+  # HTTP for LLM API calls
+  dio: ^5.4.0
+  
+  # Logging for debugging
+  logger: ^2.0.2
+  
+  # Charts for analytics
+  fl_chart: ^0.66.0
+  
+  # UUID generation
+  uuid: ^4.2.2
+  
+  # Date formatting
+  intl: ^0.18.1
+  
+  # Icons
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  drift_dev: ^2.14.1
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.9
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/data/
+    - assets/images/
+
+# Permissions Philosophy:
+# - CAMERA: Required for meal photo capture (image never stored)
+# - INTERNET: Required for LLM API calls only
+# - NO storage permissions (SQLite uses app-private directory)
+# - NO location permissions
+# - NO contacts/phone/SMS permissions

@@ -1,0 +1,60 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.kaloree.app">
+    
+    <!-- MINIMAL PERMISSIONS POLICY -->
+    <!-- Only requesting what's absolutely necessary -->
+    
+    <!-- Camera: Required for meal photo capture -->
+    <!-- Image is processed in-memory and immediately discarded -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    
+    <!-- Internet: Required for LLM API calls -->
+    <!-- Only connects to user-specified API endpoints (Claude/Gemini) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- EXPLICITLY NOT REQUESTING: -->
+    <!-- android.permission.READ_EXTERNAL_STORAGE - Not needed, using app-private SQLite -->
+    <!-- android.permission.WRITE_EXTERNAL_STORAGE - Not needed -->
+    <!-- android.permission.ACCESS_FINE_LOCATION - Not needed -->
+    <!-- android.permission.ACCESS_COARSE_LOCATION - Not needed -->
+    <!-- android.permission.READ_CONTACTS - Not needed -->
+    <!-- android.permission.RECORD_AUDIO - Not needed -->
+    
+    <application
+        android:label="Kaloree"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
+        
+        <!-- Disable backup to prevent API key leakage -->
+        <!-- API keys are stored in Android Keystore, not in backup -->
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            
+            <meta-data
+                android:name="flutterEmbedding"
+                android:resource="@style/NormalTheme" />
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+</manifest>

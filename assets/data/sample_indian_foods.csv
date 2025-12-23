@@ -1,0 +1,51 @@
+Food,Calories,Protein,Carbs,Fat,Fiber,Serving_Size,Serving_Grams
+Plain Dosa,133,4.1,25.3,2.0,1.5,1 dosa,120
+Masala Dosa,268,7.2,42.8,7.5,3.2,1 dosa,200
+Idli,78,2.0,16.0,0.4,0.8,2 pieces,80
+Vada,193,4.8,18.5,11.2,1.9,2 pieces,70
+Upma,201,5.1,32.4,5.8,2.3,1 bowl,150
+Poha,250,4.5,38.0,8.5,2.0,1 plate,180
+Aloo Paratha,330,7.2,45.8,13.5,3.8,1 paratha,150
+Paneer Paratha,412,15.3,42.6,20.5,3.5,1 paratha,170
+Dal Tadka,138,8.2,20.5,3.1,4.5,1 bowl,200
+Dal Makhani,235,9.8,22.3,11.8,5.2,1 bowl,200
+Rajma,172,9.5,28.4,2.8,6.5,1 bowl,200
+Chole,269,13.2,44.8,4.5,12.5,1 bowl,200
+Palak Paneer,265,14.5,12.8,18.2,3.5,1 bowl,200
+Paneer Butter Masala,358,16.2,15.5,26.8,2.8,1 bowl,200
+Chicken Curry,242,28.5,8.2,10.5,2.1,1 bowl,200
+Mutton Curry,294,26.8,6.5,18.2,1.8,1 bowl,200
+Fish Curry,185,22.5,5.8,7.5,1.2,1 bowl,200
+Biryani Chicken,412,22.5,52.8,12.5,3.2,1 plate,300
+Biryani Mutton,485,24.2,54.5,18.8,3.5,1 plate,300
+Biryani Veg,356,8.5,58.2,10.2,4.5,1 plate,300
+Jeera Rice,268,5.2,52.5,4.5,1.8,1 bowl,200
+Plain Rice,242,4.5,53.2,0.5,0.8,1 bowl,200
+Pulao,312,6.8,56.2,7.5,2.5,1 bowl,200
+Samosa,262,4.8,28.5,14.2,2.5,1 piece,80
+Pakora,245,6.2,22.5,14.8,2.8,5 pieces,100
+Dhokla,160,5.5,28.2,3.2,2.5,4 pieces,120
+Kachori,315,6.8,32.5,17.5,3.2,1 piece,90
+Pani Puri,125,3.2,22.5,2.8,1.5,6 pieces,90
+Dahi Vada,156,5.8,18.5,6.5,1.2,2 pieces,100
+Raita,88,4.2,8.5,4.2,0.5,1 bowl,150
+Gulab Jamun,175,3.2,28.5,6.2,0.5,1 piece,50
+Jalebi,150,1.2,32.5,2.8,0.2,2 pieces,60
+Rasmalai,186,5.5,24.8,7.8,0.3,1 piece,80
+Kheer,194,5.2,32.5,4.5,0.8,1 bowl,150
+Ladoo,142,2.8,22.5,4.8,1.2,1 piece,40
+Halwa,268,3.5,38.5,11.2,1.5,1 bowl,100
+Chai,37,1.2,5.5,1.2,0.0,1 cup,200
+Lassi Sweet,142,5.2,22.8,3.5,0.2,1 glass,250
+Lassi Salted,98,5.5,12.5,2.8,0.2,1 glass,250
+Naan,262,7.5,45.2,5.5,2.2,1 piece,90
+Roti,106,3.5,18.5,2.2,2.5,1 piece,40
+Chapati,104,3.2,18.2,2.5,2.8,1 piece,40
+Kulcha,201,5.2,35.8,4.5,1.8,1 piece,80
+Bhatura,392,7.8,52.5,16.5,2.5,1 piece,120
+Puri,164,3.8,18.2,8.5,1.2,1 piece,35
+Rasgulla,153,4.2,30.5,2.2,0.1,2 pieces,80
+Barfi,168,4.5,24.5,6.2,0.5,1 piece,40
+Sandesh,142,5.2,22.8,3.8,0.2,1 piece,50
+Mysore Pak,201,2.8,28.5,9.2,0.8,1 piece,45
+Aloo Gobi,142,3.8,18.5,6.5,3.5,1 bowl,200
