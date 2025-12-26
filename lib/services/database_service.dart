@@ -61,6 +61,7 @@ class UserSettings extends Table {
   RealColumn get height => real().nullable()(); // cm
   TextColumn get gender => text().nullable()(); // male, female, other
   TextColumn get activityLevel => text().nullable()(); // sedentary, light, moderate, very, extra
+  IntColumn get calculatedTDEE => integer().nullable()(); // Persisted maintenance calories
 
   @override
   Set<Column> get primaryKey => {id};
@@ -90,18 +91,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
       if (from == 1) {
-        // Add new profile columns to UserSettings
+        // Add new profile columns to UserSettings (v1 -> v2)
         await migrator.addColumn(userSettings, userSettings.age);
         await migrator.addColumn(userSettings, userSettings.weight);
         await migrator.addColumn(userSettings, userSettings.height);
         await migrator.addColumn(userSettings, userSettings.gender);
         await migrator.addColumn(userSettings, userSettings.activityLevel);
+      }
+      if (from <= 2) {
+        // Add calculatedTDEE column (v2 -> v3)
+        await migrator.addColumn(userSettings, userSettings.calculatedTDEE);
       }
     },
   );
@@ -306,6 +311,19 @@ class AppDatabase extends _$AppDatabase {
         height: Value(profile.height),
         gender: Value(profile.gender),
         activityLevel: Value(profile.activityLevel),
+      ),
+    );
+  }
+
+  Future<int?> getCalculatedTDEE() async {
+    final settings = await (select(userSettings)..limit(1)).getSingleOrNull();
+    return settings?.calculatedTDEE;
+  }
+
+  Future<void> saveCalculatedTDEE(int tdee) {
+    return (update(userSettings)..where((s) => s.id.equals(1))).write(
+      UserSettingsCompanion(
+        calculatedTDEE: Value(tdee),
       ),
     );
   }

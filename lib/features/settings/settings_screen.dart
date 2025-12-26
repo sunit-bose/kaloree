@@ -14,6 +14,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _goalsCardKey = GlobalKey<_GoalsCardState>();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -34,14 +36,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 8),
           Text('Enter your details to calculate maintenance calories.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
-          _ProfileCard(),
+          _ProfileCard(onGoalsUpdated: () => _goalsCardKey.currentState?._loadGoals()),
 
           const SizedBox(height: 32),
           Text('🎯 Daily Goals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text('Set your daily nutrition targets.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
-          _GoalsCard(),
+          _GoalsCard(key: _goalsCardKey),
 
           const SizedBox(height: 32),
           Text('🔒 Privacy', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
@@ -282,6 +284,10 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
 }
 
 class _ProfileCard extends ConsumerStatefulWidget {
+  final VoidCallback onGoalsUpdated;
+
+  const _ProfileCard({required this.onGoalsUpdated});
+
   @override
   ConsumerState<_ProfileCard> createState() => _ProfileCardState();
 }
@@ -315,6 +321,8 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
   Future<void> _loadProfile() async {
     final database = ref.read(databaseProvider);
     final profile = await database.getProfile();
+    final savedTDEE = await database.getCalculatedTDEE();
+    
     if (profile != null) {
       setState(() {
         _ageController.text = profile.age.toString();
@@ -322,6 +330,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
         _heightController.text = profile.height.toString();
         _selectedGender = profile.gender;
         _selectedActivity = profile.activityLevel;
+        _calculatedTDEE = savedTDEE?.toDouble();
       });
     }
     setState(() => _isLoading = false);
@@ -354,7 +363,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
     );
   }
 
-  void _calculateTDEE() {
+  Future<void> _calculateTDEE() async {
     final age = int.tryParse(_ageController.text);
     final weight = double.tryParse(_weightController.text);
     final height = double.tryParse(_heightController.text);
@@ -377,8 +386,10 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
       
       setState(() => _calculatedTDEE = tdee);
       
-      // Save profile automatically when calculating
-      _saveProfile();
+      // Save profile and calculated TDEE
+      await _saveProfile();
+      final database = ref.read(databaseProvider);
+      await database.saveCalculatedTDEE(tdee.round());
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -399,6 +410,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
 
     final database = ref.read(databaseProvider);
     await database.updateGoals(goals);
+    
+    // Trigger GoalsCard refresh
+    widget.onGoalsUpdated();
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Goals updated from calculation ✓')),
@@ -555,6 +569,8 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
 }
 
 class _GoalsCard extends ConsumerStatefulWidget {
+  const _GoalsCard({super.key});
+
   @override
   ConsumerState<_GoalsCard> createState() => _GoalsCardState();
 }
