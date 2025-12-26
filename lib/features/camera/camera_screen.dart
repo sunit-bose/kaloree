@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import '../../services/llm_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/mlkit_food_detector.dart';
+import '../../services/nutrition_label_scanner.dart';
 import '../../models/meal_analysis.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
@@ -205,22 +206,58 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
 
       print('✅ DEBUG: API configured, proceeding with food detection');
 
-      // Step 2: ML Kit pre-screening (fast, on-device, free)
+      // Step 2: ML Kit pre-screening for food (fast, on-device, free)
       final mlKitDetector = ref.read(mlKitFoodDetectorProvider);
       final isFoodDetected = await mlKitDetector.isFoodImage(imageBytes);
 
       print('🔍 DEBUG: Food detected by ML Kit: $isFoodDetected');
 
       if (!isFoodDetected) {
-        // ML Kit determined this is NOT food - skip LLM call
+        // Step 3: Not food - check if it's a nutrition label
+        print('🏷️ DEBUG: Checking for nutrition label...');
+        final nutritionScanner = ref.read(nutritionLabelScannerProvider);
+        final isNutritionLabel = await nutritionScanner.isNutritionLabel(imageBytes);
+
+        print('🏷️ DEBUG: Nutrition label detected: $isNutritionLabel');
+
+        if (isNutritionLabel) {
+          // Extract nutrition information from label
+          print('📊 DEBUG: Extracting nutrition info from label...');
+          try {
+            final analysis = await nutritionScanner.extractNutritionInfo(imageBytes);
+
+            if (analysis != null && mounted) {
+              setState(() => _isAnalyzing = false);
+              // Navigate to meal info screen with nutrition label data
+              AppNavigator.toMealInfo(context, analysis);
+              return;
+            } else {
+              setState(() => _isAnalyzing = false);
+              _showError('Could not extract nutrition information from label. Please try again or enter manually.');
+              return;
+            }
+          } catch (e) {
+            if (e.toString().contains('MULTI_COLUMN_NOT_SUPPORTED')) {
+              setState(() => _isAnalyzing = false);
+              _showMultiColumnNotSupportedDialog();
+              return;
+            } else {
+              setState(() => _isAnalyzing = false);
+              _showError('Failed to parse nutrition label: $e');
+              return;
+            }
+          }
+        }
+
+        // Not food and not nutrition label - show error
         setState(() => _isAnalyzing = false);
         _showNotFoodDialog();
         return;
       }
 
-      print('✅ DEBUG: Proceeding with LLM analysis');
+      print('✅ DEBUG: Proceeding with LLM analysis for food image');
 
-      // Step 3: Send to LLM for detailed nutritional analysis
+      // Step 4: IS food - send to LLM for detailed nutritional analysis
       final llmService = ref.read(llmServiceProvider);
       final analysis = await llmService.analyzeMealImage(imageBytes);
 
@@ -271,6 +308,39 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
               // Stay on camera to retry
             },
             child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMultiColumnNotSupportedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Multi-Column Label'),
+        content: const Text(
+          'This appears to be a nutrition label with multiple columns (e.g., "Per Serving" and "Per 100g").\n\n'
+          'Currently, only single-column labels are supported. Please enter the nutrition information manually.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Stay on camera to retry with different label
+            },
+            child: const Text('Retry'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to search/manual entry
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SearchScreen()),
+              );
+            },
+            child: const Text('Add Manually'),
           ),
         ],
       ),
@@ -461,7 +531,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
                     ),
                   ),
                   child: const Text(
-                    '📸 Point at your meal • AI will identify items ✨',
+                    '📸 Scan meals or 🏷️ nutrition labels ✨',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 14,

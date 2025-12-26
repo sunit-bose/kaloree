@@ -11,10 +11,12 @@ class SplashScreen extends StatelessWidget {
       backgroundColor: AppTheme.kaloreePurple,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Image.asset(
             'assets/images/kaloree_logo.png',
-            width: 180,
+            // Let the image maintain its aspect ratio
+            // The logo will scale to fit width while preserving proportions
+            fit: BoxFit.contain,
           ),
         ),
       ),

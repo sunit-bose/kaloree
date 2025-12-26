@@ -57,6 +57,10 @@ class LLMService {
       } else if (e.response?.statusCode == 403) {
         throw LLMException('API access forbidden. Please check your API key permissions.');
       } else if (e.response?.statusCode == 404) {
+        // Special message for Gemini experimental model
+        if (provider == LLMProvider.gemini) {
+          throw LLMException('Gemini 2.0 Flash (Experimental) is not available for your API key. Try using Claude or Groq instead, or request access to experimental models.');
+        }
         throw LLMException('API endpoint not found. The selected model may not be available.');
       } else if (e.response?.statusCode == 429) {
         throw LLMException('Rate limit exceeded. Please try again in a moment.');
