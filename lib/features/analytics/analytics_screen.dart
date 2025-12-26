@@ -88,6 +88,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     return ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
+                        _GoalAchievementCard(summaries: summaries, goal: goals.calorieGoal),
+                        const SizedBox(height: 24),
                         _CalorieChart(summaries: summaries, goal: goals.calorieGoal, range: _selectedRange),
                         const SizedBox(height: 24),
                         _MacroBreakdownCard(summaries: summaries),
@@ -118,6 +120,177 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         // For year, get monthly aggregates (simplified)
         return database.getMonthlySummary();
     }
+  }
+}
+
+class _GoalAchievementCard extends StatelessWidget {
+  final List<DailySummary> summaries;
+  final int goal;
+
+  const _GoalAchievementCard({
+    required this.summaries,
+    required this.goal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    final trackedDays = summaries.where((s) => s.totalCalories > 0).toList();
+    if (trackedDays.isEmpty) return const SizedBox.shrink();
+
+    final achieved = trackedDays.where((s) =>
+      GoalStatus.fromCalories(s.totalCalories, goal) == GoalStatus.achieved
+    ).length;
+    final exceeded = trackedDays.where((s) =>
+      GoalStatus.fromCalories(s.totalCalories, goal) == GoalStatus.exceeded
+    ).length;
+    final under = trackedDays.where((s) =>
+      GoalStatus.fromCalories(s.totalCalories, goal) == GoalStatus.under
+    ).length;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('🎯 Goal Achievement', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _AchievementItem(
+                    status: GoalStatus.achieved,
+                    count: achieved,
+                    total: trackedDays.length,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AchievementItem(
+                    status: GoalStatus.exceeded,
+                    count: exceeded,
+                    total: trackedDays.length,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AchievementItem(
+                    status: GoalStatus.under,
+                    count: under,
+                    total: trackedDays.length,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Daily status indicators
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: summaries.map((summary) {
+                if (summary.totalCalories == 0) {
+                  return Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        DateFormat('d').format(summary.date),
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                      ),
+                    ),
+                  );
+                }
+                final status = GoalStatus.fromCalories(summary.totalCalories, goal);
+                final color = status == GoalStatus.achieved ? Colors.green :
+                             status == GoalStatus.exceeded ? Colors.red : Colors.orange;
+                return Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    border: Border.all(color: color, width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      status.emoji,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementItem extends StatelessWidget {
+  final GoalStatus status;
+  final int count;
+  final int total;
+  final Color color;
+
+  const _AchievementItem({
+    required this.status,
+    required this.count,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = total > 0 ? (count / total * 100).round() : 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            status.emoji,
+            style: const TextStyle(fontSize: 24),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            '$percentage%',
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            status.displayName,
+            style: const TextStyle(fontSize: 10),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -220,13 +393,15 @@ class _CalorieChart extends StatelessWidget {
                   barGroups: summaries.asMap().entries.map((entry) {
                     final index = entry.key;
                     final summary = entry.value;
-                    final isOverGoal = summary.totalCalories > goal;
+                    final status = GoalStatus.fromCalories(summary.totalCalories, goal);
+                    final color = status == GoalStatus.achieved ? Colors.green :
+                                 status == GoalStatus.exceeded ? Colors.red : Colors.orange;
                     return BarChartGroupData(
                       x: index,
                       barRods: [
                         BarChartRodData(
                           toY: summary.totalCalories.toDouble(),
-                          color: isOverGoal ? Colors.red.shade400 : theme.primaryColor,
+                          color: summary.totalCalories == 0 ? Colors.grey.shade300 : color,
                           width: range == TimeRange.month ? 6 : 16,
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                         ),
