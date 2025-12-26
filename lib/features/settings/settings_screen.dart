@@ -430,8 +430,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
                     controller: _ageController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Age',
-                      suffixText: 'years',
+                      labelText: 'Age (yrs)',
                     ),
                   ),
                 ),
@@ -439,10 +438,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
                 Expanded(
                   child: TextField(
                     controller: _weightController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Weight',
-                      suffixText: 'kg',
+                      labelText: 'Weight (kg)',
                     ),
                   ),
                 ),
@@ -450,50 +448,40 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
                 Expanded(
                   child: TextField(
                     controller: _heightController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Height',
-                      suffixText: 'cm',
+                      labelText: 'Height (cm)',
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedGender,
-                    decoration: const InputDecoration(labelText: 'Gender'),
-                    items: const [
-                      DropdownMenuItem(value: 'male', child: Text('Male')),
-                      DropdownMenuItem(value: 'female', child: Text('Female')),
-                      DropdownMenuItem(value: 'other', child: Text('Other')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _selectedGender = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedActivity,
-                    decoration: const InputDecoration(labelText: 'Activity Level'),
-                    items: ActivityLevel.values.map((level) {
-                      return DropdownMenuItem(
-                        value: level.name,
-                        child: Text(level.displayName),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _selectedActivity = value);
-                    },
-                  ),
-                ),
+            DropdownButtonFormField<String>(
+              value: _selectedGender,
+              decoration: const InputDecoration(labelText: 'Gender'),
+              items: const [
+                DropdownMenuItem(value: 'male', child: Text('Male')),
+                DropdownMenuItem(value: 'female', child: Text('Female')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
               ],
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedGender = value);
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedActivity,
+              decoration: const InputDecoration(labelText: 'Activity Level'),
+              items: ActivityLevel.values.map((level) {
+                return DropdownMenuItem(
+                  value: level.name,
+                  child: Text(level.displayName),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedActivity = value);
+              },
             ),
             const SizedBox(height: 16),
             SizedBox(
