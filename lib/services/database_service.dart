@@ -54,6 +54,13 @@ class UserSettings extends Table {
   RealColumn get carbsGoal => real().withDefault(const Constant(250))();
   RealColumn get fatGoal => real().withDefault(const Constant(65))();
   IntColumn get createdAt => integer()();
+  
+  // User Profile for TDEE calculation
+  IntColumn get age => integer().nullable()();
+  RealColumn get weight => real().nullable()(); // kg
+  RealColumn get height => real().nullable()(); // cm
+  TextColumn get gender => text().nullable()(); // male, female, other
+  TextColumn get activityLevel => text().nullable()(); // sedentary, light, moderate, very, extra
 
   @override
   Set<Column> get primaryKey => {id};
@@ -83,7 +90,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from == 1) {
+        // Add new profile columns to UserSettings
+        await migrator.addColumn(userSettings, userSettings.age);
+        await migrator.addColumn(userSettings, userSettings.weight);
+        await migrator.addColumn(userSettings, userSettings.height);
+        await migrator.addColumn(userSettings, userSettings.gender);
+        await migrator.addColumn(userSettings, userSettings.activityLevel);
+      }
+    },
+  );
 
   // Initialize default data
   Future<void> initializeDefaultData() async {
@@ -255,6 +276,36 @@ class AppDatabase extends _$AppDatabase {
         proteinGoal: Value(goals.proteinGoal),
         carbsGoal: Value(goals.carbsGoal),
         fatGoal: Value(goals.fatGoal),
+      ),
+    );
+  }
+
+  // ============================================
+  // USER PROFILE
+  // ============================================
+
+  Future<UserProfile?> getProfile() async {
+    final settings = await (select(userSettings)..limit(1)).getSingleOrNull();
+    if (settings == null || settings.age == null) {
+      return null;
+    }
+    return UserProfile(
+      age: settings.age!,
+      weight: settings.weight!,
+      height: settings.height!,
+      gender: settings.gender!,
+      activityLevel: settings.activityLevel!,
+    );
+  }
+
+  Future<void> saveProfile(UserProfile profile) {
+    return (update(userSettings)..where((s) => s.id.equals(1))).write(
+      UserSettingsCompanion(
+        age: Value(profile.age),
+        weight: Value(profile.weight),
+        height: Value(profile.height),
+        gender: Value(profile.gender),
+        activityLevel: Value(profile.activityLevel),
       ),
     );
   }

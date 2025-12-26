@@ -170,3 +170,62 @@ class DailySummary {
     required this.mealCount,
   });
 }
+
+// User profile for TDEE calculation
+class UserProfile {
+  final int age;
+  final double weight; // kg
+  final double height; // cm
+  final String gender; // male, female, other
+  final String activityLevel; // sedentary, light, moderate, very, extra
+
+  UserProfile({
+    required this.age,
+    required this.weight,
+    required this.height,
+    required this.gender,
+    required this.activityLevel,
+  });
+}
+
+// Activity level enum
+enum ActivityLevel {
+  sedentary('Sedentary', 1.2, 'Little or no exercise'),
+  light('Light Active', 1.375, '1-3 days/week'),
+  moderate('Moderate Active', 1.55, '3-5 days/week'),
+  very('Very Active', 1.725, '6-7 days/week'),
+  extra('Extra Active', 1.9, 'Physical job + exercise');
+
+  final String displayName;
+  final double multiplier;
+  final String description;
+  
+  const ActivityLevel(this.displayName, this.multiplier, this.description);
+  
+  static ActivityLevel fromString(String value) {
+    return ActivityLevel.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => ActivityLevel.moderate,
+    );
+  }
+}
+
+// Goal achievement status
+enum GoalStatus {
+  achieved('Achieved', '✅'),
+  exceeded('Exceeded', '🔥'),
+  under('Not Achieved', '⚠️');
+
+  final String displayName;
+  final String emoji;
+  
+  const GoalStatus(this.displayName, this.emoji);
+  
+  static GoalStatus fromCalories(int consumed, int goal) {
+    if (consumed == 0) return GoalStatus.under;
+    final diff = consumed - goal;
+    if (diff.abs() <= 50) return GoalStatus.achieved;
+    if (diff > 1) return GoalStatus.exceeded;
+    return GoalStatus.under;
+  }
+}

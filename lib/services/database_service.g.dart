@@ -1158,9 +1158,46 @@ class $UserSettingsTable extends UserSettings
   late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
       'created_at', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _ageMeta = const VerificationMeta('age');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, calorieGoal, proteinGoal, carbsGoal, fatGoal, createdAt];
+  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+      'age', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _weightMeta = const VerificationMeta('weight');
+  @override
+  late final GeneratedColumn<double> weight = GeneratedColumn<double>(
+      'weight', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<double> height = GeneratedColumn<double>(
+      'height', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _genderMeta = const VerificationMeta('gender');
+  @override
+  late final GeneratedColumn<String> gender = GeneratedColumn<String>(
+      'gender', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _activityLevelMeta =
+      const VerificationMeta('activityLevel');
+  @override
+  late final GeneratedColumn<String> activityLevel = GeneratedColumn<String>(
+      'activity_level', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        calorieGoal,
+        proteinGoal,
+        carbsGoal,
+        fatGoal,
+        createdAt,
+        age,
+        weight,
+        height,
+        gender,
+        activityLevel
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1200,6 +1237,28 @@ class $UserSettingsTable extends UserSettings
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('age')) {
+      context.handle(
+          _ageMeta, age.isAcceptableOrUnknown(data['age']!, _ageMeta));
+    }
+    if (data.containsKey('weight')) {
+      context.handle(_weightMeta,
+          weight.isAcceptableOrUnknown(data['weight']!, _weightMeta));
+    }
+    if (data.containsKey('height')) {
+      context.handle(_heightMeta,
+          height.isAcceptableOrUnknown(data['height']!, _heightMeta));
+    }
+    if (data.containsKey('gender')) {
+      context.handle(_genderMeta,
+          gender.isAcceptableOrUnknown(data['gender']!, _genderMeta));
+    }
+    if (data.containsKey('activity_level')) {
+      context.handle(
+          _activityLevelMeta,
+          activityLevel.isAcceptableOrUnknown(
+              data['activity_level']!, _activityLevelMeta));
+    }
     return context;
   }
 
@@ -1221,6 +1280,16 @@ class $UserSettingsTable extends UserSettings
           .read(DriftSqlType.double, data['${effectivePrefix}fat_goal'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+      age: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}age']),
+      weight: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}weight']),
+      height: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}height']),
+      gender: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}gender']),
+      activityLevel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}activity_level']),
     );
   }
 
@@ -1237,13 +1306,23 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
   final double carbsGoal;
   final double fatGoal;
   final int createdAt;
+  final int? age;
+  final double? weight;
+  final double? height;
+  final String? gender;
+  final String? activityLevel;
   const UserSetting(
       {required this.id,
       required this.calorieGoal,
       required this.proteinGoal,
       required this.carbsGoal,
       required this.fatGoal,
-      required this.createdAt});
+      required this.createdAt,
+      this.age,
+      this.weight,
+      this.height,
+      this.gender,
+      this.activityLevel});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1253,6 +1332,21 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     map['carbs_goal'] = Variable<double>(carbsGoal);
     map['fat_goal'] = Variable<double>(fatGoal);
     map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || age != null) {
+      map['age'] = Variable<int>(age);
+    }
+    if (!nullToAbsent || weight != null) {
+      map['weight'] = Variable<double>(weight);
+    }
+    if (!nullToAbsent || height != null) {
+      map['height'] = Variable<double>(height);
+    }
+    if (!nullToAbsent || gender != null) {
+      map['gender'] = Variable<String>(gender);
+    }
+    if (!nullToAbsent || activityLevel != null) {
+      map['activity_level'] = Variable<String>(activityLevel);
+    }
     return map;
   }
 
@@ -1264,6 +1358,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       carbsGoal: Value(carbsGoal),
       fatGoal: Value(fatGoal),
       createdAt: Value(createdAt),
+      age: age == null && nullToAbsent ? const Value.absent() : Value(age),
+      weight:
+          weight == null && nullToAbsent ? const Value.absent() : Value(weight),
+      height:
+          height == null && nullToAbsent ? const Value.absent() : Value(height),
+      gender:
+          gender == null && nullToAbsent ? const Value.absent() : Value(gender),
+      activityLevel: activityLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityLevel),
     );
   }
 
@@ -1277,6 +1381,11 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       carbsGoal: serializer.fromJson<double>(json['carbsGoal']),
       fatGoal: serializer.fromJson<double>(json['fatGoal']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
+      age: serializer.fromJson<int?>(json['age']),
+      weight: serializer.fromJson<double?>(json['weight']),
+      height: serializer.fromJson<double?>(json['height']),
+      gender: serializer.fromJson<String?>(json['gender']),
+      activityLevel: serializer.fromJson<String?>(json['activityLevel']),
     );
   }
   @override
@@ -1289,6 +1398,11 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       'carbsGoal': serializer.toJson<double>(carbsGoal),
       'fatGoal': serializer.toJson<double>(fatGoal),
       'createdAt': serializer.toJson<int>(createdAt),
+      'age': serializer.toJson<int?>(age),
+      'weight': serializer.toJson<double?>(weight),
+      'height': serializer.toJson<double?>(height),
+      'gender': serializer.toJson<String?>(gender),
+      'activityLevel': serializer.toJson<String?>(activityLevel),
     };
   }
 
@@ -1298,7 +1412,12 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           double? proteinGoal,
           double? carbsGoal,
           double? fatGoal,
-          int? createdAt}) =>
+          int? createdAt,
+          Value<int?> age = const Value.absent(),
+          Value<double?> weight = const Value.absent(),
+          Value<double?> height = const Value.absent(),
+          Value<String?> gender = const Value.absent(),
+          Value<String?> activityLevel = const Value.absent()}) =>
       UserSetting(
         id: id ?? this.id,
         calorieGoal: calorieGoal ?? this.calorieGoal,
@@ -1306,6 +1425,12 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
         carbsGoal: carbsGoal ?? this.carbsGoal,
         fatGoal: fatGoal ?? this.fatGoal,
         createdAt: createdAt ?? this.createdAt,
+        age: age.present ? age.value : this.age,
+        weight: weight.present ? weight.value : this.weight,
+        height: height.present ? height.value : this.height,
+        gender: gender.present ? gender.value : this.gender,
+        activityLevel:
+            activityLevel.present ? activityLevel.value : this.activityLevel,
       );
   UserSetting copyWithCompanion(UserSettingsCompanion data) {
     return UserSetting(
@@ -1317,6 +1442,13 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       carbsGoal: data.carbsGoal.present ? data.carbsGoal.value : this.carbsGoal,
       fatGoal: data.fatGoal.present ? data.fatGoal.value : this.fatGoal,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      age: data.age.present ? data.age.value : this.age,
+      weight: data.weight.present ? data.weight.value : this.weight,
+      height: data.height.present ? data.height.value : this.height,
+      gender: data.gender.present ? data.gender.value : this.gender,
+      activityLevel: data.activityLevel.present
+          ? data.activityLevel.value
+          : this.activityLevel,
     );
   }
 
@@ -1328,14 +1460,19 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           ..write('proteinGoal: $proteinGoal, ')
           ..write('carbsGoal: $carbsGoal, ')
           ..write('fatGoal: $fatGoal, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('age: $age, ')
+          ..write('weight: $weight, ')
+          ..write('height: $height, ')
+          ..write('gender: $gender, ')
+          ..write('activityLevel: $activityLevel')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, calorieGoal, proteinGoal, carbsGoal, fatGoal, createdAt);
+  int get hashCode => Object.hash(id, calorieGoal, proteinGoal, carbsGoal,
+      fatGoal, createdAt, age, weight, height, gender, activityLevel);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1345,7 +1482,12 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           other.proteinGoal == this.proteinGoal &&
           other.carbsGoal == this.carbsGoal &&
           other.fatGoal == this.fatGoal &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.age == this.age &&
+          other.weight == this.weight &&
+          other.height == this.height &&
+          other.gender == this.gender &&
+          other.activityLevel == this.activityLevel);
 }
 
 class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
@@ -1355,6 +1497,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
   final Value<double> carbsGoal;
   final Value<double> fatGoal;
   final Value<int> createdAt;
+  final Value<int?> age;
+  final Value<double?> weight;
+  final Value<double?> height;
+  final Value<String?> gender;
+  final Value<String?> activityLevel;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
     this.calorieGoal = const Value.absent(),
@@ -1362,6 +1509,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     this.carbsGoal = const Value.absent(),
     this.fatGoal = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.age = const Value.absent(),
+    this.weight = const Value.absent(),
+    this.height = const Value.absent(),
+    this.gender = const Value.absent(),
+    this.activityLevel = const Value.absent(),
   });
   UserSettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -1370,6 +1522,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     this.carbsGoal = const Value.absent(),
     this.fatGoal = const Value.absent(),
     required int createdAt,
+    this.age = const Value.absent(),
+    this.weight = const Value.absent(),
+    this.height = const Value.absent(),
+    this.gender = const Value.absent(),
+    this.activityLevel = const Value.absent(),
   }) : createdAt = Value(createdAt);
   static Insertable<UserSetting> custom({
     Expression<int>? id,
@@ -1378,6 +1535,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     Expression<double>? carbsGoal,
     Expression<double>? fatGoal,
     Expression<int>? createdAt,
+    Expression<int>? age,
+    Expression<double>? weight,
+    Expression<double>? height,
+    Expression<String>? gender,
+    Expression<String>? activityLevel,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1386,6 +1548,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       if (carbsGoal != null) 'carbs_goal': carbsGoal,
       if (fatGoal != null) 'fat_goal': fatGoal,
       if (createdAt != null) 'created_at': createdAt,
+      if (age != null) 'age': age,
+      if (weight != null) 'weight': weight,
+      if (height != null) 'height': height,
+      if (gender != null) 'gender': gender,
+      if (activityLevel != null) 'activity_level': activityLevel,
     });
   }
 
@@ -1395,7 +1562,12 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       Value<double>? proteinGoal,
       Value<double>? carbsGoal,
       Value<double>? fatGoal,
-      Value<int>? createdAt}) {
+      Value<int>? createdAt,
+      Value<int?>? age,
+      Value<double?>? weight,
+      Value<double?>? height,
+      Value<String?>? gender,
+      Value<String?>? activityLevel}) {
     return UserSettingsCompanion(
       id: id ?? this.id,
       calorieGoal: calorieGoal ?? this.calorieGoal,
@@ -1403,6 +1575,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       carbsGoal: carbsGoal ?? this.carbsGoal,
       fatGoal: fatGoal ?? this.fatGoal,
       createdAt: createdAt ?? this.createdAt,
+      age: age ?? this.age,
+      weight: weight ?? this.weight,
+      height: height ?? this.height,
+      gender: gender ?? this.gender,
+      activityLevel: activityLevel ?? this.activityLevel,
     );
   }
 
@@ -1427,6 +1604,21 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
+    if (age.present) {
+      map['age'] = Variable<int>(age.value);
+    }
+    if (weight.present) {
+      map['weight'] = Variable<double>(weight.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<double>(height.value);
+    }
+    if (gender.present) {
+      map['gender'] = Variable<String>(gender.value);
+    }
+    if (activityLevel.present) {
+      map['activity_level'] = Variable<String>(activityLevel.value);
+    }
     return map;
   }
 
@@ -1438,7 +1630,12 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
           ..write('proteinGoal: $proteinGoal, ')
           ..write('carbsGoal: $carbsGoal, ')
           ..write('fatGoal: $fatGoal, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('age: $age, ')
+          ..write('weight: $weight, ')
+          ..write('height: $height, ')
+          ..write('gender: $gender, ')
+          ..write('activityLevel: $activityLevel')
           ..write(')'))
         .toString();
   }
@@ -2743,6 +2940,11 @@ typedef $$UserSettingsTableCreateCompanionBuilder = UserSettingsCompanion
   Value<double> carbsGoal,
   Value<double> fatGoal,
   required int createdAt,
+  Value<int?> age,
+  Value<double?> weight,
+  Value<double?> height,
+  Value<String?> gender,
+  Value<String?> activityLevel,
 });
 typedef $$UserSettingsTableUpdateCompanionBuilder = UserSettingsCompanion
     Function({
@@ -2752,6 +2954,11 @@ typedef $$UserSettingsTableUpdateCompanionBuilder = UserSettingsCompanion
   Value<double> carbsGoal,
   Value<double> fatGoal,
   Value<int> createdAt,
+  Value<int?> age,
+  Value<double?> weight,
+  Value<double?> height,
+  Value<String?> gender,
+  Value<String?> activityLevel,
 });
 
 class $$UserSettingsTableFilterComposer
@@ -2780,6 +2987,21 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<int> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get age => $composableBuilder(
+      column: $table.age, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get weight => $composableBuilder(
+      column: $table.weight, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get height => $composableBuilder(
+      column: $table.height, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get gender => $composableBuilder(
+      column: $table.gender, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get activityLevel => $composableBuilder(
+      column: $table.activityLevel, builder: (column) => ColumnFilters(column));
 }
 
 class $$UserSettingsTableOrderingComposer
@@ -2808,6 +3030,22 @@ class $$UserSettingsTableOrderingComposer
 
   ColumnOrderings<int> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get age => $composableBuilder(
+      column: $table.age, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get weight => $composableBuilder(
+      column: $table.weight, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get height => $composableBuilder(
+      column: $table.height, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get gender => $composableBuilder(
+      column: $table.gender, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get activityLevel => $composableBuilder(
+      column: $table.activityLevel,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$UserSettingsTableAnnotationComposer
@@ -2836,6 +3074,21 @@ class $$UserSettingsTableAnnotationComposer
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get age =>
+      $composableBuilder(column: $table.age, builder: (column) => column);
+
+  GeneratedColumn<double> get weight =>
+      $composableBuilder(column: $table.weight, builder: (column) => column);
+
+  GeneratedColumn<double> get height =>
+      $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<String> get gender =>
+      $composableBuilder(column: $table.gender, builder: (column) => column);
+
+  GeneratedColumn<String> get activityLevel => $composableBuilder(
+      column: $table.activityLevel, builder: (column) => column);
 }
 
 class $$UserSettingsTableTableManager extends RootTableManager<
@@ -2870,6 +3123,11 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             Value<double> carbsGoal = const Value.absent(),
             Value<double> fatGoal = const Value.absent(),
             Value<int> createdAt = const Value.absent(),
+            Value<int?> age = const Value.absent(),
+            Value<double?> weight = const Value.absent(),
+            Value<double?> height = const Value.absent(),
+            Value<String?> gender = const Value.absent(),
+            Value<String?> activityLevel = const Value.absent(),
           }) =>
               UserSettingsCompanion(
             id: id,
@@ -2878,6 +3136,11 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             carbsGoal: carbsGoal,
             fatGoal: fatGoal,
             createdAt: createdAt,
+            age: age,
+            weight: weight,
+            height: height,
+            gender: gender,
+            activityLevel: activityLevel,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -2886,6 +3149,11 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             Value<double> carbsGoal = const Value.absent(),
             Value<double> fatGoal = const Value.absent(),
             required int createdAt,
+            Value<int?> age = const Value.absent(),
+            Value<double?> weight = const Value.absent(),
+            Value<double?> height = const Value.absent(),
+            Value<String?> gender = const Value.absent(),
+            Value<String?> activityLevel = const Value.absent(),
           }) =>
               UserSettingsCompanion.insert(
             id: id,
@@ -2894,6 +3162,11 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             carbsGoal: carbsGoal,
             fatGoal: fatGoal,
             createdAt: createdAt,
+            age: age,
+            weight: weight,
+            height: height,
+            gender: gender,
+            activityLevel: activityLevel,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

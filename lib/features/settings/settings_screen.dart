@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/database_service.dart';
 import '../../models/meal_analysis.dart';
+import '../../utils/tdee_calculator.dart';
 
 /// Settings Screen - API key management and daily goals
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Text('Add your own API key to enable AI meal analysis. Keys are stored securely on your device.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
           _ApiConfigCard(),
+
+          const SizedBox(height: 32),
+          Text('📊 Profile', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('Enter your details to calculate maintenance calories.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          const SizedBox(height: 16),
+          _ProfileCard(),
 
           const SizedBox(height: 32),
           Text('🎯 Daily Goals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
@@ -266,6 +274,291 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileCard extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_ProfileCard> createState() => _ProfileCardState();
+}
+
+class _ProfileCardState extends ConsumerState<_ProfileCard> {
+  late TextEditingController _ageController;
+  late TextEditingController _weightController;
+  late TextEditingController _heightController;
+  String _selectedGender = 'male';
+  String _selectedActivity = 'moderate';
+  bool _isLoading = true;
+  double? _calculatedTDEE;
+
+  @override
+  void initState() {
+    super.initState();
+    _ageController = TextEditingController();
+    _weightController = TextEditingController();
+    _heightController = TextEditingController();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _ageController.dispose();
+    _weightController.dispose();
+    _heightController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    final database = ref.read(databaseProvider);
+    final profile = await database.getProfile();
+    if (profile != null) {
+      setState(() {
+        _ageController.text = profile.age.toString();
+        _weightController.text = profile.weight.toString();
+        _heightController.text = profile.height.toString();
+        _selectedGender = profile.gender;
+        _selectedActivity = profile.activityLevel;
+      });
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _saveProfile() async {
+    final age = int.tryParse(_ageController.text);
+    final weight = double.tryParse(_weightController.text);
+    final height = double.tryParse(_heightController.text);
+
+    if (age == null || weight == null || height == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter valid values')),
+      );
+      return;
+    }
+
+    final profile = UserProfile(
+      age: age,
+      weight: weight,
+      height: height,
+      gender: _selectedGender,
+      activityLevel: _selectedActivity,
+    );
+
+    final database = ref.read(databaseProvider);
+    await database.saveProfile(profile);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile saved')),
+    );
+  }
+
+  void _calculateTDEE() {
+    final age = int.tryParse(_ageController.text);
+    final weight = double.tryParse(_weightController.text);
+    final height = double.tryParse(_heightController.text);
+
+    if (age == null || weight == null || height == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields first')),
+      );
+      return;
+    }
+
+    try {
+      final tdee = TDEECalculator.calculateTDEE(
+        age: age,
+        weight: weight,
+        height: height,
+        gender: _selectedGender,
+        activityLevel: _selectedActivity,
+      );
+      
+      setState(() => _calculatedTDEE = tdee);
+      
+      // Save profile automatically when calculating
+      _saveProfile();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<void> _useCalculatedGoals() async {
+    if (_calculatedTDEE == null) return;
+
+    final macros = TDEECalculator.calculateMacros(_calculatedTDEE!);
+    final goals = DailyGoals(
+      calorieGoal: _calculatedTDEE!.round(),
+      proteinGoal: macros['protein']!,
+      carbsGoal: macros['carbs']!,
+      fatGoal: macros['fat']!,
+    );
+
+    final database = ref.read(databaseProvider);
+    await database.updateGoals(goals);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Goals updated from calculation ✓')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_isLoading) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ageController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Age',
+                      suffixText: 'years',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Weight',
+                      suffixText: 'kg',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _heightController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Height',
+                      suffixText: 'cm',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedGender,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: const [
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _selectedGender = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedActivity,
+                    decoration: const InputDecoration(labelText: 'Activity Level'),
+                    items: ActivityLevel.values.map((level) {
+                      return DropdownMenuItem(
+                        value: level.name,
+                        child: Text(level.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _selectedActivity = value);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _calculateTDEE,
+                icon: const Icon(Icons.calculate),
+                label: const Text('Calculate Maintenance Calories'),
+              ),
+            ),
+            if (_calculatedTDEE != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.primaryColor, width: 2),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.local_fire_department, color: Colors.orange, size: 32),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Maintenance Calories',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            Text(
+                              '${_calculatedTDEE!.round()} kcal/day',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: theme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Recommended macros: ${TDEECalculator.calculateMacros(_calculatedTDEE!)['protein']!.round()}g protein, ${TDEECalculator.calculateMacros(_calculatedTDEE!)['carbs']!.round()}g carbs, ${TDEECalculator.calculateMacros(_calculatedTDEE!)['fat']!.round()}g fat',
+                      style: theme.textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _useCalculatedGoals,
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Use for Daily Goals'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
