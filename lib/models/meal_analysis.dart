@@ -171,6 +171,39 @@ class DailySummary {
   });
 }
 
+// Hourly summary for day view analytics
+class HourlySummary {
+  final DateTime timestamp;
+  final int hour; // 0-23
+  final int totalCalories;
+  final double totalProtein;
+  final double totalCarbs;
+  final double totalFat;
+  final int mealCount;
+
+  HourlySummary({
+    required this.timestamp,
+    required this.hour,
+    required this.totalCalories,
+    required this.totalProtein,
+    required this.totalCarbs,
+    required this.totalFat,
+    required this.mealCount,
+  });
+  
+  // Convert to DailySummary for compatibility with existing chart widget
+  DailySummary toDailySummary() {
+    return DailySummary(
+      date: timestamp,
+      totalCalories: totalCalories,
+      totalProtein: totalProtein,
+      totalCarbs: totalCarbs,
+      totalFat: totalFat,
+      mealCount: mealCount,
+    );
+  }
+}
+
 // User profile for TDEE calculation
 class UserProfile {
   final int age;

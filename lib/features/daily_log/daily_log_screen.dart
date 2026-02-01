@@ -140,6 +140,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                             const SizedBox(height: 12),
                             ...meals.map((meal) => _MealCard(
                               meal: meal,
+                              database: database,
                               onTypeChanged: (type) async {
                                 await database.updateMealType(meal.id, type);
                                 setState(() {});
@@ -318,11 +319,13 @@ class _MacroProgressBar extends StatelessWidget {
 
 class _MealCard extends StatelessWidget {
   final Meal meal;
+  final AppDatabase database;
   final Function(MealType) onTypeChanged;
   final VoidCallback onDelete;
 
   const _MealCard({
     required this.meal,
+    required this.database,
     required this.onTypeChanged,
     required this.onDelete,
   });
@@ -343,26 +346,54 @@ class _MealCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Show food item names
+                      FutureBuilder<String>(
+                        future: database.getMealItemNames(meal.id),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            return Text(
+                              snapshot.data!,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          }
+                          return Text(
+                            'Loading...',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        },
                       ),
-                      child: Text(
-                        'Meal ${meal.mealNumber}',
-                        style: TextStyle(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              timeStr,
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(timeStr, style: theme.textTheme.bodyMedium),
-                  ],
+                    ],
+                  ),
                 ),
                 PopupMenuButton<String>(
                   onSelected: (value) {
@@ -460,25 +491,52 @@ class _SmallMacro extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('🍽️', style: TextStyle(fontSize: 80)),
-          const SizedBox(height: 16),
-          Text(
-            'No meals logged yet',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap the camera icon to log your first meal 📸',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('🍽️', style: TextStyle(fontSize: 80)),
+            const SizedBox(height: 16),
+            Text(
+              'No meals logged yet',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Start tracking your nutrition journey',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Pop back to show bottom nav, user can tap camera icon
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Start Tracking'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tap the camera icon at the bottom to begin',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

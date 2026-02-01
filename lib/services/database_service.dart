@@ -204,6 +204,13 @@ class AppDatabase extends _$AppDatabase {
     return (select(mealItems)..where((m) => m.mealId.equals(mealId))).get();
   }
 
+  /// Get comma-separated food names for a meal
+  Future<String> getMealItemNames(String mealId) async {
+    final items = await getMealItems(mealId);
+    if (items.isEmpty) return 'No items';
+    return items.map((item) => item.name).join(', ');
+  }
+
   Future<void> updateMealType(String mealId, MealType type) {
     return (update(meals)..where((m) => m.id.equals(mealId)))
         .write(MealsCompanion(mealType: Value(type.name)));
@@ -252,6 +259,49 @@ class AppDatabase extends _$AppDatabase {
       final date = now.subtract(Duration(days: i));
       final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       summaries.add(await getDailySummary(dateStr));
+    }
+    
+    return summaries;
+  }
+
+  Future<List<HourlySummary>> getHourlySummary(String date) async {
+    // Get all meals for the specific date
+    final result = await (select(meals)..where((m) => m.date.equals(date))).get();
+    
+    // Group meals by hour
+    final Map<int, List<Meal>> mealsByHour = {};
+    for (var meal in result) {
+      final mealTime = DateTime.fromMillisecondsSinceEpoch(meal.timestamp);
+      final hour = mealTime.hour;
+      
+      if (!mealsByHour.containsKey(hour)) {
+        mealsByHour[hour] = [];
+      }
+      mealsByHour[hour]!.add(meal);
+    }
+    
+    // Create hourly summaries (0-23 hours)
+    final summaries = <HourlySummary>[];
+    final baseDate = DateTime.parse(date);
+    
+    for (var hour = 0; hour < 24; hour++) {
+      final mealsInHour = mealsByHour[hour] ?? [];
+      final timestamp = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        hour,
+      );
+      
+      summaries.add(HourlySummary(
+        timestamp: timestamp,
+        hour: hour,
+        totalCalories: mealsInHour.fold(0, (sum, m) => sum + m.totalCalories),
+        totalProtein: mealsInHour.fold(0.0, (sum, m) => sum + m.totalProtein),
+        totalCarbs: mealsInHour.fold(0.0, (sum, m) => sum + m.totalCarbs),
+        totalFat: mealsInHour.fold(0.0, (sum, m) => sum + m.totalFat),
+        mealCount: mealsInHour.length,
+      ));
     }
     
     return summaries;

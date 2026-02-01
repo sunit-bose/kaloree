@@ -16,6 +16,24 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   TimeRange _selectedRange = TimeRange.week;
+  bool _hasEnoughDataForYear = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDataAvailability();
+  }
+
+  Future<void> _checkDataAvailability() async {
+    final database = ref.read(databaseProvider);
+    final summaries = await database.getMonthlySummary();
+    
+    // Check if we have at least 90 days of tracked data
+    final trackedDays = summaries.where((s) => s.totalCalories > 0).length;
+    setState(() {
+      _hasEnoughDataForYear = trackedDays >= 90;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,23 +52,47 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             child: Row(
               children: TimeRange.values.map((range) {
                 final isSelected = _selectedRange == range;
+                final isDisabled = range == TimeRange.year && !_hasEnoughDataForYear;
+                
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedRange = range),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? theme.primaryColor : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            range.displayName,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.grey.shade700,
-                              fontWeight: FontWeight.w600,
+                      onTap: isDisabled
+                          ? () => _showYearViewDisabledDialog()
+                          : () => setState(() => _selectedRange = range),
+                      child: Opacity(
+                        opacity: isDisabled ? 0.6 : 1.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.primaryColor
+                                : isDisabled
+                                    ? Colors.grey.shade300
+                                    : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  range.displayName,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : isDisabled
+                                            ? Colors.grey.shade500
+                                            : Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (isDisabled) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -110,8 +152,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Future<List<DailySummary>> _getDataForRange(AppDatabase database) async {
     switch (_selectedRange) {
       case TimeRange.day:
+        // Get hourly breakdown for today
         final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        return [await database.getDailySummary(today)];
+        final hourlySummaries = await database.getHourlySummary(today);
+        // Convert to DailySummary for chart compatibility
+        return hourlySummaries.map((h) => h.toDailySummary()).toList();
       case TimeRange.week:
         return database.getWeeklySummary();
       case TimeRange.month:
@@ -120,6 +165,31 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         // For year, get monthly aggregates (simplified)
         return database.getMonthlySummary();
     }
+  }
+  
+  void _showYearViewDisabledDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Year View Locked'),
+          ],
+        ),
+        content: const Text(
+          'The yearly analysis view requires at least 90 days of tracked data to provide meaningful insights.\n\n'
+          'Keep tracking your meals daily to unlock this feature!',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -188,7 +258,7 @@ class _GoalAchievementCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Daily status indicators
+            // Daily status indicators - Calendar style
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -343,14 +413,18 @@ class _CalorieChart extends StatelessWidget {
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
                           if (index >= 0 && index < summaries.length) {
-                            final date = summaries[index].date;
+                            final summary = summaries[index];
                             String label;
-                            if (range == TimeRange.week) {
-                              label = DateFormat('E').format(date);
+                            if (range == TimeRange.day) {
+                              // For hourly view, show time of day
+                              label = DateFormat('ha').format(summary.date);
+                            } else if (range == TimeRange.week) {
+                              label = DateFormat('E').format(summary.date);
                             } else if (range == TimeRange.month) {
-                              label = index % 5 == 0 ? DateFormat('d').format(date) : '';
+                              label = index % 5 == 0 ? DateFormat('d').format(summary.date) : '';
                             } else {
-                              label = DateFormat('ha').format(date);
+                              // Year view - show month names
+                              label = DateFormat('MMM').format(summary.date);
                             }
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
@@ -402,7 +476,7 @@ class _CalorieChart extends StatelessWidget {
                         BarChartRodData(
                           toY: summary.totalCalories.toDouble(),
                           color: summary.totalCalories == 0 ? Colors.grey.shade300 : color,
-                          width: range == TimeRange.month ? 6 : 16,
+                          width: range == TimeRange.day ? 8 : (range == TimeRange.month ? 6 : 16),
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                         ),
                       ],

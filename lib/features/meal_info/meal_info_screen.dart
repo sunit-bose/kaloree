@@ -28,7 +28,11 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
   void initState() {
     super.initState();
     _items = List.from(widget.analysis.items);
-    _inferMealType();
+    // Only auto-infer meal type for manual search, not for camera/AI
+    if (widget.analysis.source == 'search') {
+      _inferMealType();
+    }
+    // For camera/AI, leave it null to make it mandatory
   }
 
   void _inferMealType() {
@@ -89,6 +93,14 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
       return;
     }
 
+    // Make meal type mandatory
+    if (_selectedMealType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a meal type')),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -131,6 +143,10 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
     if (selected == today) return 'Today';
     if (selected == today.subtract(const Duration(days: 1))) return 'Yesterday';
     return DateFormat('MMM d, yyyy').format(_selectedDate);
+  }
+
+  String get _displayTime {
+    return DateFormat('h:mm a').format(_selectedDate);
   }
 
   @override
@@ -199,45 +215,107 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
               ),
             ),
 
-            // Date selector
+            // Date and Time selectors
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedDate,
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    setState(() => _selectedDate = picked);
-                  }
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today, size: 20, color: theme.primaryColor),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Date: $_displayDate',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ],
+              child: Row(
+                children: [
+                  // Date selector
+                  Expanded(
+                    flex: 3,
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          // Preserve current time when date is selected
+                          setState(() => _selectedDate = DateTime(
+                            picked.year,
+                            picked.month,
+                            picked.day,
+                            _selectedDate.hour,
+                            _selectedDate.minute,
+                            _selectedDate.second,
+                          ));
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 20, color: theme.primaryColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _displayDate,
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                              ],
+                            ),
+                            Icon(Icons.arrow_drop_down, size: 20, color: Colors.grey.shade600),
+                          ],
+                        ),
                       ),
-                      Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  // Time selector
+                  Expanded(
+                    flex: 2,
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                        );
+                        if (picked != null) {
+                          setState(() => _selectedDate = DateTime(
+                            _selectedDate.year,
+                            _selectedDate.month,
+                            _selectedDate.day,
+                            picked.hour,
+                            picked.minute,
+                          ));
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.access_time, size: 20, color: theme.primaryColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _displayTime,
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                              ],
+                            ),
+                            Icon(Icons.arrow_drop_down, size: 20, color: Colors.grey.shade600),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -246,27 +324,45 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
             // Meal type selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Save as:', style: theme.textTheme.titleMedium),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: MealType.values.map((type) {
-                          final isSelected = _selectedMealType == type;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(type.displayName),
-                              selected: isSelected,
-                              onSelected: (_) => setState(() => _selectedMealType = type),
-                              selectedColor: theme.primaryColor.withOpacity(0.2),
-                            ),
-                          );
-                        }).toList(),
+                  Row(
+                    children: [
+                      Text('Save as:', style: theme.textTheme.titleMedium),
+                      if (_selectedMealType == null) ...[
+                        const SizedBox(width: 8),
+                        Text('*', style: TextStyle(color: Colors.red, fontSize: 18)),
+                      ],
+                    ],
+                  ),
+                  if (_selectedMealType == null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Please select a meal type',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
+                    ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: MealType.values.map((type) {
+                        final isSelected = _selectedMealType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(type.displayName),
+                            selected: isSelected,
+                            onSelected: (_) => setState(() => _selectedMealType = type),
+                            selectedColor: theme.primaryColor.withOpacity(0.2),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],

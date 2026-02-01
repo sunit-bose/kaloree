@@ -31,6 +31,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
   FlashMode _flashMode = FlashMode.auto;
   String? _error;
   Uint8List? _capturedImageBytes; // Store captured image for preview
+  bool _isCameraMode = true; // Toggle between camera and search mode
 
   @override
   void initState() {
@@ -400,227 +401,255 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            // Camera preview
-            if (_isInitialized && _controller != null)
-              Positioned.fill(
-                child: ClipRRect(
-                  child: CameraPreview(_controller!),
+            // Simple logo at top
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SizedBox(
+                  height: 50,
+                  child: Image.asset(
+                    'assets/images/kaloree_app_logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Text('🔥 Kaloree', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700));
+                    },
+                  ),
                 ),
-              )
-            else if (_error != null)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+            ),
+
+            // Camera frame
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Stack(
                   children: [
-                    Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: TextStyle(color: Colors.grey.shade400),
-                      textAlign: TextAlign.center,
+                    // Camera preview with rounded corners
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: AppTheme.primaryGradient.colors[0],
+                            width: 3,
+                          ),
+                        ),
+                        child: _isInitialized && _controller != null
+                            ? CameraPreview(_controller!)
+                            : _error != null
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
+                                        const SizedBox(height: 16),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                                          child: Text(
+                                            _error!,
+                                            style: TextStyle(color: Colors.grey.shade400),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        ElevatedButton(
+                                          onPressed: _initializeCamera,
+                                          child: const Text('Retry'),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Center(
+                                    child: CircularProgressIndicator(
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                      ),
                     ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _initializeCamera,
-                      child: const Text('Retry'),
+
+                    // Flash toggle inside camera frame (top-left)
+                    if (_isInitialized && _isCameraMode)
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            onPressed: _toggleFlash,
+                            icon: Icon(_flashIcon, color: Colors.white, size: 24),
+                            tooltip: 'Flash: ${_flashMode.name}',
+                          ),
+                        ),
+                      ),
+
+                    // Instructions overlay
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(0.6),
+                                Colors.black.withOpacity(0.4),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Text(
+                            '📸 Scan meals or 🏷️ nutrition labels',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              )
-            else
-              Center(
-                child: CircularProgressIndicator(
-                  color: Theme.of(context).primaryColor,
-                ),
               ),
+            ),
 
-            // Top bar with branding, mode toggle and flash
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Flash toggle button
-                  if (_isInitialized)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        onPressed: _toggleFlash,
-                        icon: Icon(_flashIcon, color: Colors.white),
-                        tooltip: 'Flash: ${_flashMode.name}',
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 48),
-                  
-                  // App Branding
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryGradient.colors[0].withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+            // Mode toggle slider (Camera/Search)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.grey.shade200, Colors.grey.shade100],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Animated sliding indicator
+                    AnimatedAlign(
+                      alignment: _isCameraMode ? Alignment.centerLeft : Alignment.centerRight,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      child: Container(
+                        width: MediaQuery.of(context).size.width / 2 - 44,
+                        height: 48,
+                        margin: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(26),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Buttons
+                    Row(
                       children: [
-                        // Logo image with fallback to emoji
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: Image.asset(
-                            'assets/images/kaloree_app_logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Text('🔥', style: TextStyle(fontSize: 20));
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (!_isCameraMode) {
+                                setState(() => _isCameraMode = true);
+                              } else if (!_isCapturing) {
+                                _captureAndAnalyze();
+                              }
                             },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Kaloree',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Empty space to balance the layout
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-
-            // Instructions
-            Positioned(
-              top: 80,
-              left: 16,
-              right: 16,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withOpacity(0.5),
-                        Colors.black.withOpacity(0.3),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Text(
-                    '📸 Scan meals or 🏷️ nutrition labels ✨',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-
-            // Bottom capture button with gradient glow
-            Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _isCapturing ? null : _captureAndAnalyze,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: _isCapturing
-                          ? null
-                          : AppTheme.primaryGradient,
-                      color: _isCapturing ? Colors.grey : null,
-                      boxShadow: _isCapturing
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: AppTheme.primaryGradient.colors[0].withOpacity(0.5),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                    ),
-                    child: _isCapturing
-                        ? const Center(
-                            child: SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
+                            child: Container(
+                              color: Colors.transparent,
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt,
+                                      color: _isCameraMode ? AppTheme.primaryGradient.colors[0] : Colors.grey.shade600,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Camera',
+                                      style: TextStyle(
+                                        color: _isCameraMode ? AppTheme.primaryGradient.colors[0] : Colors.grey.shade600,
+                                        fontWeight: _isCameraMode ? FontWeight.w700 : FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          )
-                        : const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 36,
                           ),
-                  ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (_isCameraMode) {
+                                setState(() => _isCameraMode = false);
+                              } else {
+                                AppNavigator.toSearch(context);
+                              }
+                            },
+                            child: Container(
+                              color: Colors.transparent,
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.search,
+                                      color: !_isCameraMode ? AppTheme.flameOrange : Colors.grey.shade600,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Search',
+                                      style: TextStyle(
+                                        color: !_isCameraMode ? AppTheme.flameOrange : Colors.grey.shade600,
+                                        fontWeight: !_isCameraMode ? FontWeight.w700 : FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
 
-            // Search button - Positioned to the right of camera button
-            Positioned(
-              bottom: 50,
-              right: 40,
-              child: GestureDetector(
-                onTap: () => AppNavigator.toSearch(context),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: AppTheme.flameGradient,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.flameOrange.withOpacity(0.4),
-                        blurRadius: 15,
-                        spreadRadius: 3,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.search,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ),
-
-            // Analyzing overlay (only shown AFTER user confirms on preview)
+            // Analyzing overlay
             if (_isAnalyzing)
               Positioned.fill(
                 child: Container(
