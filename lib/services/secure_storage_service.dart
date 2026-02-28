@@ -19,7 +19,6 @@ class SecureStorageService {
   // Key identifiers
   static const _claudeApiKey = 'claude_api_key';
   static const _geminiApiKey = 'gemini_api_key';
-  static const _groqApiKey = 'groq_api_key';
   static const _selectedProvider = 'selected_provider';
 
   // ============================================
@@ -66,26 +65,6 @@ class SecureStorageService {
     return key != null && key.isNotEmpty;
   }
 
-  /// Store Groq API key securely
-  Future<void> setGroqApiKey(String apiKey) async {
-    if (apiKey.isEmpty) {
-      await _storage.delete(key: _groqApiKey);
-    } else {
-      await _storage.write(key: _groqApiKey, value: apiKey);
-    }
-  }
-
-  /// Retrieve Groq API key (only in memory during use)
-  Future<String?> getGroqApiKey() async {
-    return await _storage.read(key: _groqApiKey);
-  }
-
-  /// Check if Groq API key exists
-  Future<bool> hasGroqApiKey() async {
-    final key = await _storage.read(key: _groqApiKey);
-    return key != null && key.isNotEmpty;
-  }
-
   // ============================================
   // PROVIDER SELECTION
   // ============================================
@@ -99,7 +78,6 @@ class SecureStorageService {
   Future<LLMProvider> getSelectedProvider() async {
     final value = await _storage.read(key: _selectedProvider);
     if (value == 'gemini') return LLMProvider.gemini;
-    if (value == 'groq') return LLMProvider.groq;
     return LLMProvider.claude; // Default
   }
 
@@ -112,10 +90,8 @@ class SecureStorageService {
     final provider = await getSelectedProvider();
     if (provider == LLMProvider.claude) {
       return await hasClaudeApiKey();
-    } else if (provider == LLMProvider.gemini) {
-      return await hasGeminiApiKey();
     } else {
-      return await hasGroqApiKey();
+      return await hasGeminiApiKey();
     }
   }
 
@@ -124,10 +100,8 @@ class SecureStorageService {
     final provider = await getSelectedProvider();
     if (provider == LLMProvider.claude) {
       return await getClaudeApiKey();
-    } else if (provider == LLMProvider.gemini) {
-      return await getGeminiApiKey();
     } else {
-      return await getGroqApiKey();
+      return await getGeminiApiKey();
     }
   }
 
@@ -144,8 +118,7 @@ class SecureStorageService {
 /// LLM Provider enum
 enum LLMProvider {
   claude('Claude (Anthropic)'),
-  gemini('Gemini (Google)'),
-  groq('Groq (Free)');
+  gemini('Gemini (Google)');
 
   final String displayName;
   const LLMProvider(this.displayName);

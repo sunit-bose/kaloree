@@ -4,8 +4,9 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../models/meal_analysis.dart';
-import '../utils/food_data_importer.dart';
+import 'tdee_calculator.dart';
 
 part 'database_service.g.dart';
 
@@ -53,7 +54,21 @@ class UserSettings extends Table {
   RealColumn get proteinGoal => real().withDefault(const Constant(60))();
   RealColumn get carbsGoal => real().withDefault(const Constant(250))();
   RealColumn get fatGoal => real().withDefault(const Constant(65))();
+  RealColumn get fiberGoal => real().withDefault(const Constant(25))();
   IntColumn get createdAt => integer()();
+  
+  // User Profile for TDEE calculation
+  IntColumn get age => integer().nullable()();
+  RealColumn get weightKg => real().nullable()();
+  RealColumn get heightCm => real().nullable()();
+  TextColumn get gender => text().nullable()(); // 'male' or 'female'
+  TextColumn get activityLevel => text().nullable()(); // 'sedentary', 'lightlyActive', etc.
+  TextColumn get fitnessGoal => text().nullable()(); // 'fatLoss', 'maintenance', 'muscleGain'
+  RealColumn get targetWeightKg => real().nullable()(); // Target weight for goal calculation
+  
+  // Cached calculations
+  IntColumn get calculatedBmr => integer().nullable()();
+  IntColumn get calculatedTdee => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -74,16 +89,62 @@ class IndianFoods extends Table {
   RealColumn get fiber => real()();
 }
 
+/// Favorite foods table - stores references to foods marked as favorites
+class FavoriteFoods extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get portion => text()();
+  IntColumn get portionGrams => integer()();
+  IntColumn get calories => integer()();
+  RealColumn get protein => real()();
+  RealColumn get carbs => real()();
+  RealColumn get fat => real()();
+  RealColumn get fiber => real()();
+  BoolColumn get isCustom => boolean().withDefault(const Constant(false))(); // User-created food
+  IntColumn get createdAt => integer()();
+}
+
 // ============================================
 // DATABASE CLASS
 // ============================================
 
-@DriftDatabase(tables: [Meals, MealItems, UserSettings, IndianFoods])
+@DriftDatabase(tables: [Meals, MealItems, UserSettings, IndianFoods, FavoriteFoods])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator m) async {
+        await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          // Add new columns for TDEE calculation
+          await m.addColumn(userSettings, userSettings.fiberGoal);
+          await m.addColumn(userSettings, userSettings.age);
+          await m.addColumn(userSettings, userSettings.weightKg);
+          await m.addColumn(userSettings, userSettings.heightCm);
+          await m.addColumn(userSettings, userSettings.gender);
+          await m.addColumn(userSettings, userSettings.activityLevel);
+          await m.addColumn(userSettings, userSettings.fitnessGoal);
+          await m.addColumn(userSettings, userSettings.calculatedBmr);
+          await m.addColumn(userSettings, userSettings.calculatedTdee);
+        }
+        if (from < 3) {
+          // Add target weight column for goal-based calculation
+          await m.addColumn(userSettings, userSettings.targetWeightKg);
+        }
+        if (from < 4) {
+          // Add favorites table
+          await m.createTable(favoriteFoods);
+        }
+      },
+    );
+  }
 
   // Initialize default data
   Future<void> initializeDefaultData() async {
@@ -95,27 +156,87 @@ class AppDatabase extends _$AppDatabase {
       ));
     }
 
-    // Seed Indian foods if empty
+    // Check if foods are loaded
     final foodCount = await (selectOnly(indianFoods)..addColumns([indianFoods.id.count()])).getSingle();
     final currentCount = foodCount.read(indianFoods.id.count()) ?? 0;
     print('🗄️ Current food count in database: $currentCount');
     
-    // Seed basic foods if database is empty
-    if (currentCount == 0) {
-      print('📦 Database is empty, seeding initial 43 foods...');
-      await _seedIndianFoods();
-    }
-    
-    // Import CSV dataset if we don't have enough foods (< 100 means CSV hasn't been imported)
+    // Import from prebuilt SQLite database if empty
     if (currentCount < 100) {
-      print('📥 Starting CSV import of 1014 Indian food recipes...');
-      final imported = await importFoodsFromCSV('assets/data/Indian_Food_Nutrition_Processed.csv');
+      print('📦 Loading foods from prebuilt database...');
+      final imported = await _importFromPrebuiltDatabase();
       
       final newCount = await (selectOnly(indianFoods)..addColumns([indianFoods.id.count()])).getSingle();
       final finalCount = newCount.read(indianFoods.id.count()) ?? 0;
-      print('✅ Database initialization complete. Total foods: $finalCount (imported $imported new items)');
+      print('✅ Database initialization complete. Total foods: $finalCount (imported $imported items)');
     } else {
       print('ℹ️ Database already fully populated with $currentCount foods');
+    }
+  }
+
+  /// Import foods from prebuilt SQLite database (much faster than CSV parsing)
+  Future<int> _importFromPrebuiltDatabase() async {
+    try {
+      // Load prebuilt database from assets
+      final dbData = await rootBundle.load('assets/data/indian_foods.db');
+      final bytes = dbData.buffer.asUint8List();
+      
+      // Write to temp file for reading
+      final dbFolder = await getApplicationDocumentsDirectory();
+      final tempDbPath = p.join(dbFolder.path, 'indian_foods_temp.db');
+      final tempFile = File(tempDbPath);
+      await tempFile.writeAsBytes(bytes, flush: true);
+      
+      print('📥 Copied prebuilt database (${bytes.length ~/ 1024} KB)');
+      
+      // Open prebuilt database and read foods
+      final prebuiltDb = NativeDatabase(tempFile, logStatements: false);
+      
+      final rows = await prebuiltDb.runSelect(
+        'SELECT name, aliases, category, region, serving_size, serving_grams, '
+        'calories, protein, carbs, fat, fiber FROM indian_foods',
+        [],
+      );
+      
+      print('📊 Found ${rows.length} foods in prebuilt database');
+      
+      int imported = 0;
+      
+      // Batch insert for performance
+      await batch((batch) {
+        for (final row in rows) {
+          batch.insert(
+            indianFoods,
+            IndianFoodsCompanion.insert(
+              name: row['name'] as String,
+              aliases: Value(row['aliases'] as String?),
+              category: row['category'] as String,
+              region: row['region'] as String,
+              servingSize: row['serving_size'] as String,
+              servingGrams: row['serving_grams'] as int,
+              calories: row['calories'] as int,
+              protein: row['protein'] as double,
+              carbs: row['carbs'] as double,
+              fat: row['fat'] as double,
+              fiber: row['fiber'] as double,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+          imported++;
+        }
+      });
+      
+      // Cleanup temp file
+      await prebuiltDb.close();
+      await tempFile.delete();
+      
+      print('✅ Imported $imported foods from prebuilt database');
+      return imported;
+    } catch (e) {
+      print('⚠️ Error importing from prebuilt database: $e');
+      print('📦 Falling back to seed data...');
+      await _seedIndianFoods();
+      return 43; // Seed data count
     }
   }
 
@@ -260,25 +381,193 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // ============================================
-  // INDIAN FOODS SEARCH
+  // USER PROFILE & TDEE CALCULATION
   // ============================================
 
-  Future<List<IndianFood>> searchFoods(String query) {
-    final searchTerm = '%${query.toLowerCase()}%';
-    return (select(indianFoods)
-      ..where((f) => f.name.lower().like(searchTerm) | f.aliases.lower().like(searchTerm))
-      ..limit(2000)) // Support large datasets - UI handles lazy loading
+  /// Get the user's profile for TDEE calculation
+  Future<UserProfile?> getUserProfile() async {
+    final settings = await (select(userSettings)..limit(1)).getSingleOrNull();
+    if (settings == null ||
+        settings.age == null ||
+        settings.weightKg == null ||
+        settings.heightCm == null ||
+        settings.gender == null ||
+        settings.activityLevel == null) {
+      return null;
+    }
+    
+    return UserProfile(
+      age: settings.age!,
+      weightKg: settings.weightKg!,
+      heightCm: settings.heightCm!,
+      gender: Gender.values.firstWhere(
+        (g) => g.name == settings.gender,
+        orElse: () => Gender.male,
+      ),
+      activityLevel: ActivityLevel.values.firstWhere(
+        (a) => a.name == settings.activityLevel,
+        orElse: () => ActivityLevel.sedentary,
+      ),
+      fitnessGoal: FitnessGoal.values.firstWhere(
+        (f) => f.name == settings.fitnessGoal,
+        orElse: () => FitnessGoal.maintenance,
+      ),
+      targetWeightKg: settings.targetWeightKg,
+    );
+  }
+
+  /// Save user profile and recalculate goals
+  Future<void> saveUserProfile(UserProfile profile) async {
+    const calculator = TDEECalculator();
+    final targets = calculator.calculateNutritionTargets(profile);
+    
+    await (update(userSettings)..where((s) => s.id.equals(1))).write(
+      UserSettingsCompanion(
+        age: Value(profile.age),
+        weightKg: Value(profile.weightKg),
+        heightCm: Value(profile.heightCm),
+        gender: Value(profile.gender.name),
+        activityLevel: Value(profile.activityLevel.name),
+        fitnessGoal: Value(profile.fitnessGoal.name),
+        targetWeightKg: Value(profile.targetWeightKg),
+        calculatedBmr: Value(targets.bmr),
+        calculatedTdee: Value(targets.tdee),
+        calorieGoal: Value(targets.dailyCalories),
+        proteinGoal: Value(targets.proteinGrams),
+        carbsGoal: Value(targets.carbsGrams),
+        fatGoal: Value(targets.fatGrams),
+        fiberGoal: Value(targets.fiberGrams),
+      ),
+    );
+  }
+
+  /// Get calculated BMR and TDEE values
+  Future<Map<String, int?>> getCalculatedValues() async {
+    final settings = await (select(userSettings)..limit(1)).getSingleOrNull();
+    return {
+      'bmr': settings?.calculatedBmr,
+      'tdee': settings?.calculatedTdee,
+    };
+  }
+
+  /// Check if user has completed profile setup
+  Future<bool> hasCompletedProfile() async {
+    final profile = await getUserProfile();
+    return profile != null;
+  }
+
+  // ============================================
+  // FAVORITES CRUD
+  // ============================================
+
+  /// Add a food item to favorites
+  Future<int> addToFavorites(FoodItem item, {bool isCustom = false}) async {
+    return into(favoriteFoods).insert(FavoriteFoodsCompanion.insert(
+      name: item.name,
+      portion: item.portion,
+      portionGrams: item.portionGrams,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: item.fiber,
+      isCustom: Value(isCustom),
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  /// Get all favorite foods
+  Future<List<FavoriteFood>> getFavorites() {
+    return (select(favoriteFoods)
+      ..orderBy([(f) => OrderingTerm.desc(f.createdAt)]))
+        .get();
+  }
+
+  /// Check if a food item is already in favorites (by name)
+  Future<bool> isFavorite(String name) async {
+    final result = await (select(favoriteFoods)
+      ..where((f) => f.name.equals(name))
+      ..limit(1))
+        .getSingleOrNull();
+    return result != null;
+  }
+
+  /// Remove from favorites by id
+  Future<void> removeFromFavorites(int id) {
+    return (delete(favoriteFoods)..where((f) => f.id.equals(id))).go();
+  }
+
+  /// Remove from favorites by name
+  Future<void> removeFromFavoritesByName(String name) {
+    return (delete(favoriteFoods)..where((f) => f.name.equals(name))).go();
+  }
+
+  /// Add a custom food item (automatically marked as favorite)
+  Future<int> addCustomFood({
+    required String name,
+    required String portion,
+    required int portionGrams,
+    required int calories,
+    required double protein,
+    required double carbs,
+    required double fat,
+    required double fiber,
+  }) {
+    return into(favoriteFoods).insert(FavoriteFoodsCompanion.insert(
+      name: name,
+      portion: portion,
+      portionGrams: portionGrams,
+      calories: calories,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+      fiber: fiber,
+      isCustom: const Value(true),
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  /// Get only custom foods
+  Future<List<FavoriteFood>> getCustomFoods() {
+    return (select(favoriteFoods)
+      ..where((f) => f.isCustom.equals(true))
+      ..orderBy([(f) => OrderingTerm.desc(f.createdAt)]))
         .get();
   }
 
   // ============================================
-  // CSV IMPORT
+  // INDIAN FOODS SEARCH
   // ============================================
 
-  /// Import foods from CSV file using the FoodDataImporter
-  Future<int> importFoodsFromCSV(String csvPath) async {
-    final importer = FoodDataImporter(this);
-    return await importer.importKaggleIndianFood(csvPath);
+  /// Search foods with optimized query
+  /// Uses LIKE for compatibility - FTS5 available in prebuilt DB for direct access
+  Future<List<IndianFood>> searchFoods(String query) {
+    if (query.trim().isEmpty) {
+      // Return all foods for empty query (popular foods)
+      return (select(indianFoods)..limit(2000)).get();
+    }
+    
+    final searchTerm = '%${query.toLowerCase()}%';
+    return (select(indianFoods)
+      ..where((f) => f.name.lower().like(searchTerm) | f.aliases.lower().like(searchTerm))
+      ..limit(100)) // Limit search results for performance
+        .get();
+  }
+
+  /// Search foods by category
+  Future<List<IndianFood>> searchFoodsByCategory(String category) {
+    return (select(indianFoods)
+      ..where((f) => f.category.equals(category))
+      ..orderBy([(f) => OrderingTerm.asc(f.name)]))
+        .get();
+  }
+
+  /// Get all unique categories
+  Future<List<String>> getAllCategories() async {
+    final result = await (selectOnly(indianFoods, distinct: true)
+      ..addColumns([indianFoods.category]))
+        .get();
+    return result.map((row) => row.read(indianFoods.category)!).toList();
   }
 
   /// Get total food count for statistics

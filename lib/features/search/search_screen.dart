@@ -133,26 +133,61 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
+          // Powered by OpenFoodFacts nudge + Search bar
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _search,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Search Indian foods...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _search('');
-                        },
-                      )
-                    : null,
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              children: [
+                // OpenFoodFacts attribution
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.eco, size: 14, color: Colors.green.shade700),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Powered by OpenFoodFacts',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Search input
+                TextField(
+                  controller: _searchController,
+                  onChanged: _search,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Search Indian foods...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _search('');
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -265,20 +300,83 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class _FoodSearchCard extends StatelessWidget {
+class _FoodSearchCard extends ConsumerStatefulWidget {
   final IndianFood food;
   final VoidCallback onAdd;
 
   const _FoodSearchCard({required this.food, required this.onAdd});
 
   @override
+  ConsumerState<_FoodSearchCard> createState() => _FoodSearchCardState();
+}
+
+class _FoodSearchCardState extends ConsumerState<_FoodSearchCard> {
+  bool _isFavorite = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFavoriteStatus();
+  }
+
+  Future<void> _checkFavoriteStatus() async {
+    final database = ref.read(databaseProvider);
+    final isFav = await database.isFavorite(widget.food.name);
+    if (mounted) {
+      setState(() {
+        _isFavorite = isFav;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final database = ref.read(databaseProvider);
+    
+    setState(() => _isLoading = true);
+    
+    if (_isFavorite) {
+      await database.removeFromFavoritesByName(widget.food.name);
+    } else {
+      final item = FoodItem(
+        name: widget.food.name,
+        portion: widget.food.servingSize,
+        portionGrams: widget.food.servingGrams,
+        calories: widget.food.calories,
+        protein: widget.food.protein,
+        carbs: widget.food.carbs,
+        fat: widget.food.fat,
+        fiber: widget.food.fiber,
+      );
+      await database.addToFavorites(item);
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isFavorite = !_isFavorite;
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isFavorite ? 'Added to favorites' : 'Removed from favorites'),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final food = widget.food;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: onAdd,
+        onTap: widget.onAdd,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -324,6 +422,29 @@ class _FoodSearchCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 8),
+              // Heart icon for favorites
+              GestureDetector(
+                onTap: _toggleFavorite,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: _isLoading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red.shade300,
+                          ),
+                        )
+                      : Icon(
+                          _isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: _isFavorite ? Colors.red : Colors.grey.shade400,
+                          size: 24,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Add icon
               Icon(Icons.add_circle_outline, color: theme.primaryColor),
             ],
           ),
