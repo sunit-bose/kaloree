@@ -35,9 +35,7 @@ class LLMService {
     }
 
     // Validate API key format for different providers
-    if (provider == LLMProvider.groq && !apiKey.startsWith('gsk_')) {
-      throw LLMException('Invalid Groq API key format. Key must start with "gsk_". Please check your API key in Settings.');
-    } else if (provider == LLMProvider.gemini && !apiKey.startsWith('AI')) {
+    if (provider == LLMProvider.gemini && !apiKey.startsWith('AI')) {
       throw LLMException('Invalid Gemini API key format. Key must start with "AI". Please check your API key in Settings.');
     } else if (provider == LLMProvider.claude && !apiKey.startsWith('sk-ant-')) {
       throw LLMException('Invalid Claude API key format. Key must start with "sk-ant-". Please check your API key in Settings.');
@@ -46,10 +44,8 @@ class LLMService {
     try {
       if (provider == LLMProvider.claude) {
         return await _analyzeWithClaude(imageBytes, apiKey);
-      } else if (provider == LLMProvider.gemini) {
-        return await _analyzeWithGemini(imageBytes, apiKey);
       } else {
-        return await _analyzeWithGroq(imageBytes, apiKey);
+        return await _analyzeWithGemini(imageBytes, apiKey);
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
@@ -111,12 +107,12 @@ class LLMService {
     return _parseResponse(content, 'ai');
   }
 
-  /// Analyze with Gemini API (using Gemini 2.0 Flash Exp)
+  /// Analyze with Gemini API (using Gemini 2.0 Flash)
   Future<MealAnalysis> _analyzeWithGemini(Uint8List imageBytes, String apiKey) async {
     final base64Image = base64Encode(imageBytes);
 
     final response = await _dio.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
       queryParameters: {'key': apiKey},
       options: Options(
         headers: {'Content-Type': 'application/json'},
@@ -146,46 +142,6 @@ class LLMService {
     );
 
     final content = response.data['candidates'][0]['content']['parts'][0]['text'] as String;
-    return _parseResponse(content, 'ai');
-  }
-
-  /// Analyze with Groq API (using Llama 3.2 Vision)
-  Future<MealAnalysis> _analyzeWithGroq(Uint8List imageBytes, String apiKey) async {
-    final base64Image = base64Encode(imageBytes);
-
-    final response = await _dio.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      options: Options(
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-      ),
-      data: {
-        'model': 'llama-3.2-11b-vision-preview',
-        'messages': [
-          {
-            'role': 'user',
-            'content': [
-              {
-                'type': 'text',
-                'text': _getPrompt(),
-              },
-              {
-                'type': 'image_url',
-                'image_url': {
-                  'url': 'data:image/jpeg;base64,$base64Image',
-                },
-              },
-            ],
-          },
-        ],
-        'max_tokens': 1024,
-        'temperature': 0.2,
-      },
-    );
-
-    final content = response.data['choices'][0]['message']['content'] as String;
     return _parseResponse(content, 'ai');
   }
 

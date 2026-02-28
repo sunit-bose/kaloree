@@ -461,6 +461,15 @@ class _EditItemSheetState extends State<_EditItemSheet> {
   late TextEditingController _proteinController;
   late TextEditingController _carbsController;
   late TextEditingController _fatController;
+  
+  // Store original values per 100g for proportional recalculation
+  late double _caloriesPer100g;
+  late double _proteinPer100g;
+  late double _carbsPer100g;
+  late double _fatPer100g;
+  late int _originalGrams;
+  
+  bool _isRecalculating = false;
 
   @override
   void initState() {
@@ -473,10 +482,59 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     _proteinController = TextEditingController(text: item?.protein.toString() ?? '0');
     _carbsController = TextEditingController(text: item?.carbs.toString() ?? '0');
     _fatController = TextEditingController(text: item?.fat.toString() ?? '0');
+    
+    // Calculate and store per-100g values for proportional recalculation
+    _originalGrams = item?.portionGrams ?? 100;
+    final originalCalories = item?.calories ?? 0;
+    final originalProtein = item?.protein ?? 0.0;
+    final originalCarbs = item?.carbs ?? 0.0;
+    final originalFat = item?.fat ?? 0.0;
+    
+    // Calculate per-100g values (avoid division by zero)
+    if (_originalGrams > 0) {
+      _caloriesPer100g = (originalCalories / _originalGrams) * 100;
+      _proteinPer100g = (originalProtein / _originalGrams) * 100;
+      _carbsPer100g = (originalCarbs / _originalGrams) * 100;
+      _fatPer100g = (originalFat / _originalGrams) * 100;
+    } else {
+      _caloriesPer100g = originalCalories.toDouble();
+      _proteinPer100g = originalProtein;
+      _carbsPer100g = originalCarbs;
+      _fatPer100g = originalFat;
+    }
+    
+    // Add listener to grams controller to auto-recalculate macros
+    _gramsController.addListener(_onGramsChanged);
+  }
+  
+  void _onGramsChanged() {
+    // Avoid infinite loops when we're programmatically updating values
+    if (_isRecalculating) return;
+    
+    final newGrams = int.tryParse(_gramsController.text);
+    if (newGrams == null || newGrams <= 0) return;
+    
+    _isRecalculating = true;
+    
+    // Recalculate all values proportionally
+    final factor = newGrams / 100;
+    final newCalories = (_caloriesPer100g * factor).round();
+    final newProtein = _proteinPer100g * factor;
+    final newCarbs = _carbsPer100g * factor;
+    final newFat = _fatPer100g * factor;
+    
+    // Update text controllers
+    _caloriesController.text = newCalories.toString();
+    _proteinController.text = newProtein.toStringAsFixed(1);
+    _carbsController.text = newCarbs.toStringAsFixed(1);
+    _fatController.text = newFat.toStringAsFixed(1);
+    
+    _isRecalculating = false;
   }
 
   @override
   void dispose() {
+    _gramsController.removeListener(_onGramsChanged);
     _nameController.dispose();
     _portionController.dispose();
     _gramsController.dispose();
