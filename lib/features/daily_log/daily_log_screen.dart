@@ -316,7 +316,7 @@ class _MacroProgressBar extends StatelessWidget {
   }
 }
 
-class _MealCard extends StatelessWidget {
+class _MealCard extends ConsumerWidget {
   final Meal meal;
   final Function(MealType) onTypeChanged;
   final VoidCallback onDelete;
@@ -328,8 +328,9 @@ class _MealCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final database = ref.watch(databaseProvider);
     final time = DateTime.fromMillisecondsSinceEpoch(meal.timestamp);
     final timeStr = DateFormat('h:mm a').format(time);
 
@@ -408,6 +409,30 @@ class _MealCard extends StatelessWidget {
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
+            // Show individual food items
+            FutureBuilder<List<MealItem>>(
+              future: database.getMealItems(meal.id),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  final items = snapshot.data!;
+                  // Consolidate items by name for display
+                  final consolidatedNames = _consolidateItemNames(items);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      consolidatedNames,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade700,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -434,6 +459,25 @@ class _MealCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Consolidates item names for display (e.g., "Roti, Dal, Rice" or "Egg (x2), Toast")
+  String _consolidateItemNames(List<MealItem> items) {
+    final Map<String, int> nameCounts = {};
+    
+    for (final item in items) {
+      final name = item.name;
+      nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
+    
+    final parts = nameCounts.entries.map((entry) {
+      if (entry.value > 1) {
+        return '${entry.key} (x${entry.value})';
+      }
+      return entry.key;
+    }).toList();
+    
+    return parts.join(', ');
   }
 }
 
