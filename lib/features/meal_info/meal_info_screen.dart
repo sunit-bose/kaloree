@@ -27,8 +27,43 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
   @override
   void initState() {
     super.initState();
-    _items = List.from(widget.analysis.items);
+    // Consolidate duplicate items by name (e.g., "2 eggs" becomes one row with combined nutrition)
+    _items = _consolidateItems(widget.analysis.items);
     _inferMealType();
+  }
+
+  /// Consolidates duplicate food items by name, combining their nutritional values
+  /// e.g., if AI returns "Egg" twice, they become "Egg (x2)" with combined calories
+  List<FoodItem> _consolidateItems(List<FoodItem> items) {
+    final Map<String, FoodItem> consolidated = {};
+    final Map<String, int> counts = {};
+    
+    for (final item in items) {
+      final key = item.name.toLowerCase().trim();
+      
+      if (consolidated.containsKey(key)) {
+        // Combine nutritional values
+        final existing = consolidated[key]!;
+        counts[key] = (counts[key] ?? 1) + 1;
+        
+        consolidated[key] = FoodItem(
+          name: existing.name, // Keep original casing
+          portion: '${counts[key]}x ${item.portion}',
+          portionGrams: existing.portionGrams + item.portionGrams,
+          calories: existing.calories + item.calories,
+          protein: existing.protein + item.protein,
+          carbs: existing.carbs + item.carbs,
+          fat: existing.fat + item.fat,
+          fiber: existing.fiber + item.fiber,
+          isEdited: existing.isEdited || item.isEdited,
+        );
+      } else {
+        consolidated[key] = item;
+        counts[key] = 1;
+      }
+    }
+    
+    return consolidated.values.toList();
   }
 
   void _inferMealType() {

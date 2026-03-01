@@ -108,8 +108,25 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Future<List<DailySummary>> _getDataForRange(AppDatabase database) async {
     switch (_selectedRange) {
       case TimeRange.day:
+        // For day view, get individual meals with their actual timestamps
         final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        return [await database.getDailySummary(today)];
+        final meals = await database.getMealsForDate(today);
+        
+        if (meals.isEmpty) {
+          return [await database.getDailySummary(today)];
+        }
+        
+        // Convert each meal to a DailySummary with actual timestamp
+        return meals.map((meal) {
+          return DailySummary(
+            date: DateTime.fromMillisecondsSinceEpoch(meal.timestamp),
+            totalCalories: meal.totalCalories,
+            totalProtein: meal.totalProtein,
+            totalCarbs: meal.totalCarbs,
+            totalFat: meal.totalFat,
+            mealCount: 1,
+          );
+        }).toList();
       case TimeRange.week:
         return database.getWeeklySummary();
       case TimeRange.month:
