@@ -59,6 +59,41 @@ dev_dependencies:
   drift_dev: ^2.14.1
   build_runner: ^2.4.8
   riverpod_generator: ^2.3.9
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.8
+
+# App Icon Configuration
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "#2D0B3D"  # Kaloree purple background
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    background_color: "#2D0B3D"
+    theme_color: "#2D0B3D"
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+
+# Native Splash Screen Configuration
+flutter_native_splash:
+  color: "#2D0B3D"
+  image: assets/icons/splash_logo.png
+  color_dark: "#2D0B3D"
+  image_dark: assets/icons/splash_logo.png
+  android_12:
+    color: "#2D0B3D"
+    icon_background_color: "#2D0B3D"
+    image: assets/icons/splash_logo.png
+  ios: true
+  android: true
 
 flutter:
   uses-material-design: true
@@ -66,6 +101,7 @@ flutter:
   assets:
     - assets/data/
     - assets/images/
+    - assets/icons/
 
 # Permissions Philosophy:
 # - CAMERA: Required for meal photo capture (image never stored)
