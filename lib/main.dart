@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'app/theme.dart';
 import 'services/database_service.dart';
 import 'widgets/main_scaffold.dart';
+import 'widgets/brand_hero.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/presentation/auth_gate.dart';
 import 'app_boot_controller.dart';
@@ -134,54 +135,8 @@ class _BootLoadingScreen extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
               
-              // Logo
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.flameOrange.withOpacity(0.4),
-                      blurRadius: 40,
-                      spreadRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/kaloree_app_logo.png',
-                  width: 120,
-                  height: 120,
-                  errorBuilder: (context, error, stackTrace) {
-                    return ShaderMask(
-                      shaderCallback: (bounds) =>
-                          AppTheme.flameGradient.createShader(bounds),
-                      child: const Icon(
-                        Icons.local_fire_department_rounded,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // App Name
-              ShaderMask(
-                shaderCallback: (bounds) =>
-                    AppTheme.textGradient.createShader(bounds),
-                blendMode: BlendMode.srcIn,
-                child: const Text(
-                  'Kaloree',
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1.5,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              // Brand Hero (logo + app name)
+              const KaloreeBrandHero(),
               
               const Spacer(),
               

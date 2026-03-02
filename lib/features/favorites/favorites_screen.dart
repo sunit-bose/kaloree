@@ -4,6 +4,7 @@ import '../../services/database_service.dart';
 import '../../models/meal_analysis.dart';
 import '../meal_info/meal_info_screen.dart';
 import '../../app/theme.dart';
+import '../../widgets/nutrient_chip.dart';
 
 /// Favorites Screen - quick access to favorite foods and custom food creation
 class FavoritesScreen extends ConsumerStatefulWidget {
@@ -449,11 +450,11 @@ class _FavoriteCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _NutrientChip(value: '${food.protein.toStringAsFixed(0)}g P', color: AppTheme.proteinColor),
+                        NutrientChip(value: '${food.protein.toStringAsFixed(0)}g P', color: AppTheme.proteinColor),
                         const SizedBox(width: 6),
-                        _NutrientChip(value: '${food.carbs.toStringAsFixed(0)}g C', color: AppTheme.carbsColor),
+                        NutrientChip(value: '${food.carbs.toStringAsFixed(0)}g C', color: AppTheme.carbsColor),
                         const SizedBox(width: 6),
-                        _NutrientChip(value: '${food.fat.toStringAsFixed(0)}g F', color: AppTheme.fatColor),
+                        NutrientChip(value: '${food.fat.toStringAsFixed(0)}g F', color: AppTheme.fatColor),
                       ],
                     ),
                   ],
@@ -486,24 +487,4 @@ class _FavoriteCard extends StatelessWidget {
   }
 }
 
-class _NutrientChip extends StatelessWidget {
-  final String value;
-  final Color color;
-
-  const _NutrientChip({required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        value,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
+// _NutrientChip moved to lib/widgets/nutrient_chip.dart as shared NutrientChip
