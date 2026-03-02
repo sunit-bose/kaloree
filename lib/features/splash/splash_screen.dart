@@ -118,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // Center content
+          // Center content - Logo only (logo already contains "Kaloree" text)
           Center(
             child: AnimatedBuilder(
               animation: _controller,
@@ -130,82 +130,43 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Flame logo with glow
+                        // Logo with glow effect
                         Container(
-                          width: 160,
-                          height: 160,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: AppTheme.flameOrange.withAlpha(
                                   (80 * _glowAnimation.value).round(),
                                 ),
-                                blurRadius: 40,
-                                spreadRadius: 10,
+                                blurRadius: 50,
+                                spreadRadius: 15,
                               ),
                               BoxShadow(
                                 color: AppTheme.flamePink.withAlpha(
                                   (60 * _glowAnimation.value).round(),
                                 ),
-                                blurRadius: 60,
-                                spreadRadius: 20,
+                                blurRadius: 80,
+                                spreadRadius: 25,
                               ),
                             ],
                           ),
-                          child: Center(
-                            child: Image.asset(
-                              'assets/images/kaloree_logo.png',
-                              width: 140,
-                              height: 140,
-                              errorBuilder: (context, error, stackTrace) {
-                                // Fallback to flame icon if image not found
-                                return ShaderMask(
-                                  shaderCallback: (bounds) => AppTheme
-                                      .flameGradient
-                                      .createShader(bounds),
-                                  child: const Icon(
-                                    Icons.local_fire_department_rounded,
-                                    size: 100,
-                                    color: Colors.white,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // App name with gradient text
-                        ShaderMask(
-                          shaderCallback: (bounds) =>
-                              AppTheme.textGradient.createShader(bounds),
-                          blendMode: BlendMode.srcIn,
-                          child: const Text(
-                            'Kaloree',
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.5,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Tagline
-                        Opacity(
-                          opacity: _glowAnimation.value,
-                          child: Text(
-                            'AI-Powered Calorie Tracking',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withAlpha(180),
-                              letterSpacing: 0.5,
-                            ),
+                          child: Image.asset(
+                            'assets/images/kaloree_logo.png',
+                            width: 220,
+                            height: 220,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Fallback to flame icon if image not found
+                              return ShaderMask(
+                                shaderCallback: (bounds) => AppTheme
+                                    .flameGradient
+                                    .createShader(bounds),
+                                child: const Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 120,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],

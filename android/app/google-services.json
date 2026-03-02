@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "699470970096",
+    "project_id": "kaloree-2265f",
+    "storage_bucket": "kaloree-2265f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699470970096:android:b3a037c62bfb22c7cb9635",
+        "android_client_info": {
+          "package_name": "com.kaloree.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "699470970096-qhbg6q7qpveambr3jf7pjt490l4olfev.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kaloree.app",
+            "certificate_hash": "3f40db936b51f69ba943bc40a3e328b1e0accdf0"
+          }
+        },
+        {
+          "client_id": "699470970096-umhl9dfsoracs0ldbd2ln6qm9gfb2pse.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0j_j8_cQVA-jWVx-_2jVGXyzpm6YyJR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "699470970096-umhl9dfsoracs0ldbd2ln6qm9gfb2pse.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

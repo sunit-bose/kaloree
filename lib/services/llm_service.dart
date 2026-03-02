@@ -79,7 +79,7 @@ class LLMService {
         },
       ),
       data: {
-        'model': 'claude-3-sonnet-20240229',
+        'model': 'claude-sonnet-4-20250514',
         'max_tokens': 1024,
         'messages': [
           {
@@ -107,7 +107,7 @@ class LLMService {
     return _parseResponse(content, 'ai');
   }
 
-  /// Analyze with Gemini API (using Gemini 2.0 Flash)
+  /// Analyze with Gemini API (using Gemini 2.0 Flash - stable production model)
   Future<MealAnalysis> _analyzeWithGemini(Uint8List imageBytes, String apiKey) async {
     final base64Image = base64Encode(imageBytes);
 

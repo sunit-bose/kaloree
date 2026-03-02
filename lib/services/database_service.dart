@@ -366,6 +366,7 @@ class AppDatabase extends _$AppDatabase {
       proteinGoal: settings.proteinGoal,
       carbsGoal: settings.carbsGoal,
       fatGoal: settings.fatGoal,
+      fiberGoal: settings.fiberGoal,
     );
   }
 
@@ -376,6 +377,7 @@ class AppDatabase extends _$AppDatabase {
         proteinGoal: Value(goals.proteinGoal),
         carbsGoal: Value(goals.carbsGoal),
         fatGoal: Value(goals.fatGoal),
+        fiberGoal: Value(goals.fiberGoal),
       ),
     );
   }

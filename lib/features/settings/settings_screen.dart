@@ -4,6 +4,8 @@ import '../../services/secure_storage_service.dart';
 import '../../services/database_service.dart';
 import '../../services/tdee_calculator.dart';
 import '../../models/meal_analysis.dart';
+import '../auth/data/auth_repository.dart';
+import '../../app/theme.dart';
 
 /// Settings Screen - API key management and daily goals
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -23,6 +25,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // My Account Section (at the top)
+          Text('👤 My Account', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('Manage your account, sign out, or export your data.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          const SizedBox(height: 16),
+          _MyAccountCard(),
+          
+          const SizedBox(height: 32),
           Text('🤖 AI Configuration', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text('Add your own API key to enable AI meal analysis. Keys are stored securely on your device.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
@@ -913,7 +923,7 @@ class _GoalsCardState extends ConsumerState<_GoalsCard> {
       _proteinController.text = goals.proteinGoal.toStringAsFixed(0);
       _carbsController.text = goals.carbsGoal.toStringAsFixed(0);
       _fatController.text = goals.fatGoal.toStringAsFixed(0);
-      _fiberController.text = '25'; // Default fiber goal
+      _fiberController.text = goals.fiberGoal.toStringAsFixed(0);
       _isLoading = false;
     });
   }
@@ -924,6 +934,7 @@ class _GoalsCardState extends ConsumerState<_GoalsCard> {
       proteinGoal: double.tryParse(_proteinController.text) ?? 60,
       carbsGoal: double.tryParse(_carbsController.text) ?? 250,
       fatGoal: double.tryParse(_fatController.text) ?? 65,
+      fiberGoal: double.tryParse(_fiberController.text) ?? 25,
     );
     final database = ref.read(databaseProvider);
     await database.updateGoals(goals);
@@ -1008,5 +1019,207 @@ class _PrivacyItem extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// My Account Card - Shows user email, logout, and export data options
+class _MyAccountCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authRepo = ref.watch(authRepositoryProvider);
+    final userEmail = authRepo.email ?? 'Not signed in';
+    final displayName = authRepo.displayName;
+    final photoURL = authRepo.photoURL;
+    final authProvider = authRepo.authProvider;
+
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: AppTheme.kaloreePurple.withOpacity(0.1),
+          backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
+          child: photoURL == null
+              ? Icon(Icons.person, color: AppTheme.kaloreePurple)
+              : null,
+        ),
+        title: Text(
+          displayName ?? userEmail,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: displayName != null
+            ? Text(userEmail, style: TextStyle(color: Colors.grey.shade600, fontSize: 12))
+            : Text('Signed in with ${authProvider.capitalize()}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _showAccountBottomSheet(context, ref),
+      ),
+    );
+  }
+
+  void _showAccountBottomSheet(BuildContext context, WidgetRef ref) {
+    final authRepo = ref.read(authRepositoryProvider);
+    final userEmail = authRepo.email ?? 'Not signed in';
+    final displayName = authRepo.displayName;
+    final photoURL = authRepo.photoURL;
+    final authProvider = authRepo.authProvider;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // User Avatar
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: AppTheme.kaloreePurple.withOpacity(0.1),
+              backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
+              child: photoURL == null
+                  ? Icon(Icons.person, size: 40, color: AppTheme.kaloreePurple)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+
+            // Display Name
+            if (displayName != null)
+              Text(
+                displayName,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+            // Email
+            Text(
+              userEmail,
+              style: TextStyle(
+                fontSize: displayName != null ? 14 : 18,
+                color: displayName != null ? Colors.grey.shade600 : Colors.black,
+                fontWeight: displayName != null ? FontWeight.normal : FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Auth Provider Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.kaloreePurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Signed in with ${authProvider.capitalize()}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.kaloreePurple,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Export Data Button (Placeholder)
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.download, color: Colors.blue.shade600),
+              ),
+              title: const Text('Export Data'),
+              subtitle: const Text('Download your meal history'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+              ),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Export feature coming soon!')),
+                );
+              },
+            ),
+            const Divider(height: 1),
+
+            // Logout Button
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.logout, color: Colors.red.shade600),
+              ),
+              title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+              subtitle: const Text('Sign out of your account'),
+              onTap: () async {
+                Navigator.pop(context); // Close bottom sheet
+                _showSignOutDialog(context, ref);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out?'),
+        content: const Text('Are you sure you want to sign out? You will need to sign in again to access your data.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final authRepo = ref.read(authRepositoryProvider);
+              await authRepo.signOut();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Signed out successfully')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Extension to capitalize strings
+extension StringCapitalize on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

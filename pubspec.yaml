@@ -16,6 +16,19 @@ dependencies:
   flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.3
   
+  # Firebase - Core Services
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.6.0
+  firebase_analytics: ^11.3.6
+  firebase_remote_config: ^5.2.0
+  
+  # Google Sign-In
+  google_sign_in: ^6.2.2
+  
+  # AdMob (consent-gated initialization)
+  google_mobile_ads: ^5.2.0
+  
   # Database - Type-safe SQLite
   drift: ^2.14.1
   sqlite3_flutter_libs: ^0.5.18
@@ -64,34 +77,35 @@ dev_dependencies:
 
 # App Icon Configuration
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: "ic_launcher"
   ios: true
-  image_path: "assets/icons/app_icon.png"
+  image_path: "assets/images/kaloree_app_logo.png"
   adaptive_icon_background: "#2D0B3D"  # Kaloree purple background
-  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  adaptive_icon_foreground: "assets/images/kaloree_app_logo.png"
   min_sdk_android: 21
+  remove_alpha_ios: true
   web:
     generate: true
-    image_path: "assets/icons/app_icon.png"
+    image_path: "assets/images/kaloree_app_logo.png"
     background_color: "#2D0B3D"
     theme_color: "#2D0B3D"
   windows:
     generate: true
-    image_path: "assets/icons/app_icon.png"
+    image_path: "assets/images/kaloree_app_logo.png"
   macos:
     generate: true
-    image_path: "assets/icons/app_icon.png"
+    image_path: "assets/images/kaloree_app_logo.png"
 
 # Native Splash Screen Configuration
 flutter_native_splash:
   color: "#2D0B3D"
-  image: assets/icons/splash_logo.png
+  image: assets/images/kaloree_logo.png
   color_dark: "#2D0B3D"
-  image_dark: assets/icons/splash_logo.png
+  image_dark: assets/images/kaloree_logo.png
   android_12:
     color: "#2D0B3D"
     icon_background_color: "#2D0B3D"
-    image: assets/icons/splash_logo.png
+    image: assets/images/kaloree_logo.png
   ios: true
   android: true
 

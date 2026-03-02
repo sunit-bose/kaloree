@@ -496,12 +496,14 @@ class _EditItemSheetState extends State<_EditItemSheet> {
   late TextEditingController _proteinController;
   late TextEditingController _carbsController;
   late TextEditingController _fatController;
+  late TextEditingController _fiberController;
   
   // Store original values per 100g for proportional recalculation
   late double _caloriesPer100g;
   late double _proteinPer100g;
   late double _carbsPer100g;
   late double _fatPer100g;
+  late double _fiberPer100g;
   late int _originalGrams;
   
   bool _isRecalculating = false;
@@ -517,6 +519,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     _proteinController = TextEditingController(text: item?.protein.toString() ?? '0');
     _carbsController = TextEditingController(text: item?.carbs.toString() ?? '0');
     _fatController = TextEditingController(text: item?.fat.toString() ?? '0');
+    _fiberController = TextEditingController(text: item?.fiber.toString() ?? '0');
     
     // Calculate and store per-100g values for proportional recalculation
     _originalGrams = item?.portionGrams ?? 100;
@@ -524,6 +527,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     final originalProtein = item?.protein ?? 0.0;
     final originalCarbs = item?.carbs ?? 0.0;
     final originalFat = item?.fat ?? 0.0;
+    final originalFiber = item?.fiber ?? 0.0;
     
     // Calculate per-100g values (avoid division by zero)
     if (_originalGrams > 0) {
@@ -531,11 +535,13 @@ class _EditItemSheetState extends State<_EditItemSheet> {
       _proteinPer100g = (originalProtein / _originalGrams) * 100;
       _carbsPer100g = (originalCarbs / _originalGrams) * 100;
       _fatPer100g = (originalFat / _originalGrams) * 100;
+      _fiberPer100g = (originalFiber / _originalGrams) * 100;
     } else {
       _caloriesPer100g = originalCalories.toDouble();
       _proteinPer100g = originalProtein;
       _carbsPer100g = originalCarbs;
       _fatPer100g = originalFat;
+      _fiberPer100g = originalFiber;
     }
     
     // Add listener to grams controller to auto-recalculate macros
@@ -557,12 +563,14 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     final newProtein = _proteinPer100g * factor;
     final newCarbs = _carbsPer100g * factor;
     final newFat = _fatPer100g * factor;
+    final newFiber = _fiberPer100g * factor;
     
     // Update text controllers
     _caloriesController.text = newCalories.toString();
     _proteinController.text = newProtein.toStringAsFixed(1);
     _carbsController.text = newCarbs.toStringAsFixed(1);
     _fatController.text = newFat.toStringAsFixed(1);
+    _fiberController.text = newFiber.toStringAsFixed(1);
     
     _isRecalculating = false;
   }
@@ -577,6 +585,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     _proteinController.dispose();
     _carbsController.dispose();
     _fatController.dispose();
+    _fiberController.dispose();
     super.dispose();
   }
 
@@ -594,7 +603,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
       protein: double.tryParse(_proteinController.text) ?? 0,
       carbs: double.tryParse(_carbsController.text) ?? 0,
       fat: double.tryParse(_fatController.text) ?? 0,
-      fiber: 0,
+      fiber: double.tryParse(_fiberController.text) ?? 0,
       isEdited: true,
     ));
     Navigator.pop(context);
@@ -644,8 +653,14 @@ class _EditItemSheetState extends State<_EditItemSheet> {
                 Expanded(child: TextField(controller: _proteinController, decoration: const InputDecoration(labelText: 'Protein (g)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
                 const SizedBox(width: 12),
                 Expanded(child: TextField(controller: _carbsController, decoration: const InputDecoration(labelText: 'Carbs (g)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-                const SizedBox(width: 12),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 Expanded(child: TextField(controller: _fatController, decoration: const InputDecoration(labelText: 'Fat (g)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+                const SizedBox(width: 12),
+                Expanded(child: TextField(controller: _fiberController, decoration: const InputDecoration(labelText: 'Fiber (g)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
               ],
             ),
             const SizedBox(height: 24),

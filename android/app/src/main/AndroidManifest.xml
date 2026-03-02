@@ -56,5 +56,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- AdMob App ID (required by google_mobile_ads SDK) -->
+        <!-- This is Google's official TEST App ID - safe for development -->
+        <!-- Replace with your actual AdMob App ID before production release -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
     </application>
 </manifest>
