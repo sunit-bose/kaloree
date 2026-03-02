@@ -6,7 +6,6 @@ import 'package:camera/camera.dart';
 import '../../services/llm_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/mlkit_food_detector.dart';
-import '../../models/meal_analysis.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../search/search_screen.dart';
@@ -31,7 +30,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
   bool _isAnalyzing = false; // Analyzing with ML Kit + LLM
   FlashMode _flashMode = FlashMode.auto;
   String? _error;
-  Uint8List? _capturedImageBytes; // Store captured image for preview
 
   @override
   void initState() {
@@ -167,10 +165,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
         debugPrint('Note: Could not delete temp file: $e');
       }
 
-      setState(() {
-        _capturedImageBytes = imageBytes;
-        _isCapturing = false;
-      });
+      setState(() => _isCapturing = false);
 
       // Show preview screen - analysis starts ONLY when user clicks "Continue"
       if (mounted) {
@@ -178,9 +173,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
           MaterialPageRoute(
             builder: (context) => ImagePreviewScreen(
               imageBytes: imageBytes,
-              onRetake: () {
-                setState(() => _capturedImageBytes = null);
-              },
+              onRetake: () {},
               onContinue: () => _processImage(imageBytes),
             ),
           ),

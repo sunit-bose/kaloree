@@ -5,7 +5,6 @@ import '../features/camera/camera_screen.dart';
 import '../features/daily_log/daily_log_screen.dart';
 import '../features/analytics/analytics_screen.dart';
 import '../features/settings/settings_screen.dart';
-import '../app/theme.dart';
 
 /// 🎨 Vibrant Gen Z Main Scaffold with bottom navigation
 class MainScaffold extends ConsumerStatefulWidget {
@@ -119,4 +118,3 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     );
   }
 }
-
