@@ -5,6 +5,7 @@ import '../../models/meal_analysis.dart';
 import '../meal_info/meal_info_screen.dart';
 import '../../app/theme.dart';
 import '../../widgets/nutrient_chip.dart';
+import '../shared/food_selection_helper.dart';
 
 /// Search Screen - manual food lookup from Indian food database
 class SearchScreen extends ConsumerStatefulWidget {
@@ -17,17 +18,13 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-  final _selectedItems = <FoodItem>[];
+  final _selectionHelper = FoodSelectionHelper();
   List<IndianFood>? _searchResults;
   bool _isSearching = false;
-  bool _isLoadingMore = false;
-  int _currentPage = 0;
-  static const int _pageSize = 20;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
   }
 
   @override
@@ -35,21 +32,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
-      // Load more when 80% scrolled
-      _loadMorePopularFoods();
-    }
-  }
-
-  Future<void> _loadMorePopularFoods() async {
-    if (_isLoadingMore || _searchResults != null) return;
-    
-    setState(() => _isLoadingMore = true);
-    // The _PopularFoods widget will handle pagination
-    setState(() => _isLoadingMore = false);
   }
 
   Future<void> _search(String query) async {
@@ -84,9 +66,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       fiber: food.fiber,
     );
 
-    setState(() {
-      _selectedItems.add(item);
-    });
+    setState(() => _selectionHelper.addItem(item));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -98,24 +78,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _removeFromSelection(int index) {
-    setState(() {
-      _selectedItems.removeAt(index);
-    });
+    setState(() => _selectionHelper.removeAt(index));
   }
 
   void _proceed() {
-    if (_selectedItems.isEmpty) {
+    final analysis = _selectionHelper.buildAnalysis(source: 'search');
+    if (analysis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one item')),
       );
       return;
     }
-
-    final analysis = MealAnalysis(
-      items: _selectedItems,
-      confidence: 'high',
-      source: 'search',
-    );
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -193,22 +166,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
 
           // Selected items
-          if (_selectedItems.isNotEmpty)
+          if (_selectionHelper.hasSelection)
             Container(
               height: 50,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _selectedItems.length,
+                itemCount: _selectionHelper.count,
                 itemBuilder: (context, index) {
-                  final item = _selectedItems[index];
+                  final item = _selectionHelper.itemAt(index);
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Chip(
                       label: Text(item.name),
                       deleteIcon: const Icon(Icons.close, size: 18),
                       onDeleted: () => _removeFromSelection(index),
-                      backgroundColor: theme.primaryColor.withOpacity(0.1),
+                      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                       labelStyle: TextStyle(color: theme.primaryColor),
                     ),
                   );
@@ -216,7 +189,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
 
-          if (_selectedItems.isNotEmpty) const Divider(),
+          if (_selectionHelper.hasSelection) const Divider(),
 
           // Search results
           Expanded(
@@ -255,14 +228,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
 
           // Bottom bar
-          if (_selectedItems.isNotEmpty)
+          if (_selectionHelper.hasSelection)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.scaffoldBackgroundColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
@@ -277,11 +250,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${_selectedItems.length} items',
+                            '${_selectionHelper.count} items',
                             style: theme.textTheme.titleMedium,
                           ),
                           Text(
-                            '${_selectedItems.fold(0, (sum, item) => sum + item.calories)} kcal',
+                            '${_selectionHelper.totalCalories} kcal',
                             style: theme.textTheme.bodyMedium,
                           ),
                         ],
@@ -545,7 +518,7 @@ class _PopularFoodsState extends ConsumerState<_PopularFoods> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
+                        color: theme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
