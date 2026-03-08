@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../features/favorites/favorites_screen.dart';
 import '../features/camera/camera_screen.dart';
 import '../features/daily_log/daily_log_screen.dart';
 import '../features/analytics/analytics_screen.dart';
 import '../features/settings/settings_screen.dart';
 
 /// 🎨 Vibrant Gen Z Main Scaffold with bottom navigation
+/// Note: Favorites is accessible via the heart button on Camera screen
 class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
 
@@ -15,19 +15,17 @@ class MainScaffold extends ConsumerStatefulWidget {
 }
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
-  int _currentIndex = 1; // Start on Camera (Snap) screen
+  int _currentIndex = 0; // Start on Camera (Snap) screen
 
   final _screens = const [
-    FavoritesScreen(),
     CameraScreen(),
     DailyLogScreen(),
     AnalyticsScreen(),
     SettingsScreen(),
   ];
 
-  // 🎨 Color-coded colors for each tab
+  // 🎨 Color-coded colors for each tab (Favorites removed - now on Camera screen)
   static const _tabColors = [
-    Color(0xFFEF4444), // Red for Favorites ❤️
     Color(0xFF7C3AED), // Purple for Camera
     Color(0xFFEC4899), // Pink for Today
     Color(0xFF3B82F6), // Blue for Insights
@@ -57,11 +55,10 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.favorite, 'Favs', _tabColors[0]),
-              _buildNavItem(1, Icons.camera_alt, 'Snap', _tabColors[1]),
-              _buildNavItem(2, Icons.restaurant, 'Today', _tabColors[2]),
-              _buildNavItem(3, Icons.insights, 'Insights', _tabColors[3]),
-              _buildNavItem(4, Icons.settings, 'Settings', _tabColors[4]),
+              _buildNavItem(0, Icons.camera_alt, 'Snap', _tabColors[0]),
+              _buildNavItem(1, Icons.restaurant, 'Today', _tabColors[1]),
+              _buildNavItem(2, Icons.insights, 'Insights', _tabColors[2]),
+              _buildNavItem(3, Icons.settings, 'Settings', _tabColors[3]),
             ],
           ),
         ),
