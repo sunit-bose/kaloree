@@ -112,12 +112,14 @@ class DailyGoals {
   final double proteinGoal;
   final double carbsGoal;
   final double fatGoal;
+  final double fiberGoal;
 
   DailyGoals({
     required this.calorieGoal,
     required this.proteinGoal,
     required this.carbsGoal,
     required this.fatGoal,
+    this.fiberGoal = 25, // Default fiber goal
   });
 
   factory DailyGoals.defaultGoals() {
@@ -126,6 +128,7 @@ class DailyGoals {
       proteinGoal: 60,
       carbsGoal: 250,
       fatGoal: 65,
+      fiberGoal: 25,
     );
   }
 }

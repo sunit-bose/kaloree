@@ -4,6 +4,8 @@ import '../../services/database_service.dart';
 import '../../models/meal_analysis.dart';
 import '../meal_info/meal_info_screen.dart';
 import '../../app/theme.dart';
+import '../../widgets/nutrient_chip.dart';
+import '../shared/food_selection_helper.dart';
 
 /// Favorites Screen - quick access to favorite foods and custom food creation
 class FavoritesScreen extends ConsumerStatefulWidget {
@@ -14,7 +16,7 @@ class FavoritesScreen extends ConsumerStatefulWidget {
 }
 
 class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
-  final _selectedItems = <FoodItem>[];
+  final _selectionHelper = FoodSelectionHelper();
 
   void _addToSelection(FavoriteFood food) {
     final item = FoodItem(
@@ -28,7 +30,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       fiber: food.fiber,
     );
 
-    setState(() => _selectedItems.add(item));
+    setState(() => _selectionHelper.addItem(item));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -40,22 +42,17 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   }
 
   void _removeFromSelection(int index) {
-    setState(() => _selectedItems.removeAt(index));
+    setState(() => _selectionHelper.removeAt(index));
   }
 
   void _proceed() {
-    if (_selectedItems.isEmpty) {
+    final analysis = _selectionHelper.buildAnalysis(source: 'favorites');
+    if (analysis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one item')),
       );
       return;
     }
-
-    final analysis = MealAnalysis(
-      items: _selectedItems,
-      confidence: 'high',
-      source: 'favorites',
-    );
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -239,15 +236,15 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       body: Column(
         children: [
           // Selected items chips
-          if (_selectedItems.isNotEmpty)
+          if (_selectionHelper.hasSelection)
             Container(
               height: 50,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _selectedItems.length,
+                itemCount: _selectionHelper.count,
                 itemBuilder: (context, index) {
-                  final item = _selectedItems[index];
+                  final item = _selectionHelper.itemAt(index);
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Chip(
@@ -262,7 +259,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
               ),
             ),
 
-          if (_selectedItems.isNotEmpty) const Divider(),
+          if (_selectionHelper.hasSelection) const Divider(),
 
           // Favorites list
           Expanded(
@@ -326,14 +323,14 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
           ),
 
           // Bottom bar - Quick Log
-          if (_selectedItems.isNotEmpty)
+          if (_selectionHelper.hasSelection)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.scaffoldBackgroundColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
@@ -347,9 +344,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${_selectedItems.length} items', style: theme.textTheme.titleMedium),
+                          Text('${_selectionHelper.count} items', style: theme.textTheme.titleMedium),
                           Text(
-                            '${_selectedItems.fold(0, (sum, item) => sum + item.calories)} kcal',
+                            '${_selectionHelper.totalCalories} kcal',
                             style: theme.textTheme.bodyMedium,
                           ),
                         ],
@@ -449,11 +446,11 @@ class _FavoriteCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _NutrientChip(value: '${food.protein.toStringAsFixed(0)}g P', color: AppTheme.proteinColor),
+                        NutrientChip(value: '${food.protein.toStringAsFixed(0)}g P', color: AppTheme.proteinColor),
                         const SizedBox(width: 6),
-                        _NutrientChip(value: '${food.carbs.toStringAsFixed(0)}g C', color: AppTheme.carbsColor),
+                        NutrientChip(value: '${food.carbs.toStringAsFixed(0)}g C', color: AppTheme.carbsColor),
                         const SizedBox(width: 6),
-                        _NutrientChip(value: '${food.fat.toStringAsFixed(0)}g F', color: AppTheme.fatColor),
+                        NutrientChip(value: '${food.fat.toStringAsFixed(0)}g F', color: AppTheme.fatColor),
                       ],
                     ),
                   ],
@@ -486,24 +483,4 @@ class _FavoriteCard extends StatelessWidget {
   }
 }
 
-class _NutrientChip extends StatelessWidget {
-  final String value;
-  final Color color;
-
-  const _NutrientChip({required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        value,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
+// _NutrientChip moved to lib/widgets/nutrient_chip.dart as shared NutrientChip

@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // 🔥 Kaloree Official Brand Colors (From Logo)
-  static const Color kaloreePurple = Color(0xFF3B0A5A); // Royal Purple - Primary Background
-  static const Color flameOrange = Color(0xFFFF8A00); // Flame top - Highlights, CTAs
-  static const Color flamePink = Color(0xFFFF2E7A); // Flame base - Accents, gradients
+  // 🔥 Kaloree Official Brand Colors (From Brand Kit)
+  // Deep purple background tones
+  static const Color kaloreePurple = Color(0xFF2D0B3D); // Deep Purple - Primary Background
+  static const Color kaloreePurpleMid = Color(0xFF5C1A66); // Mid Purple - Gradient center
+  static const Color kaloreePurpleLight = Color(0xFF3B0A5A); // Royal Purple - Accents
+  
+  // Flame gradient colors (Orange → Pink → Magenta)
+  static const Color flameOrange = Color(0xFFFFA726); // Flame top - Warm Orange
+  static const Color flameOrangeDeep = Color(0xFFFF6B35); // Deep Orange
+  static const Color flamePink = Color(0xFFFF2E7E); // Flame Pink
+  static const Color flameMagenta = Color(0xFFE91E8C); // Magenta - Flame base
+  
+  // Text and accent colors
   static const Color textOrange = Color(0xFFFF7A18); // Warm Orange - Text gradient
   static const Color textRose = Color(0xFFFF3D81); // Magenta Rose - Emphasis elements
   
@@ -21,26 +30,48 @@ class AppTheme {
   static const Color _textMuted = Color(0xFF94A3B8); // Light Gray
 
   // 🌈 Macro colors - Kaloree branded
-  static const Color proteinColor = kaloreePurple; // Purple 💪
+  static const Color proteinColor = kaloreePurpleLight; // Purple 💪
   static const Color carbsColor = flameOrange; // Flame Orange ⚡
   static const Color fatColor = flamePink; // Flame Pink 🥑
   static const Color fiberColor = Color(0xFF34D399); // Mint 🥬
 
-  // 🔥 Kaloree Brand Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [kaloreePurple, Color(0xFF5A1A7A)],
+  // 🔥 Kaloree Brand Gradients (From Brand Kit CSS)
+  
+  // Rich purple gradient for backgrounds
+  // CSS: linear-gradient(135deg, #2D0B3D 0%, #5C1A66 50%, #2D0B3D 100%)
+  static const LinearGradient backgroundGradient = LinearGradient(
+    colors: [kaloreePurple, kaloreePurpleMid, kaloreePurple],
+    stops: [0.0, 0.5, 1.0],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
+  // Flame gradient for buttons and highlights
+  // CSS: linear-gradient(135deg, #FFA726 0%, #FF6B35 35%, #FF2E7E 70%, #E91E8C 100%)
   static const LinearGradient flameGradient = LinearGradient(
-    colors: [flameOrange, flamePink],
+    colors: [flameOrange, flameOrangeDeep, flamePink, flameMagenta],
+    stops: [0.0, 0.35, 0.7, 1.0],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // Glow gradient for subtle overlay effects
+  // CSS: linear-gradient(180deg, rgba(255,167,38,0.3) 0%, rgba(233,30,140,0.3) 100%)
+  static const LinearGradient glowGradient = LinearGradient(
+    colors: [Color(0x4DFFA726), Color(0x4DE91E8C)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
+  // Primary gradient (alias for background)
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [kaloreePurple, kaloreePurpleMid],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   static const LinearGradient textGradient = LinearGradient(
-    colors: [textOrange, textRose],
+    colors: [flameOrange, flamePink, flameMagenta],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -48,7 +79,7 @@ class AppTheme {
   static const LinearGradient secondaryGradient = flameGradient;
 
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [flameOrange, Color(0xFFFF9D33)],
+    colors: [flameOrange, flameOrangeDeep],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
