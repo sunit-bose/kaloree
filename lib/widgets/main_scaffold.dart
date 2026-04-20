@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/camera/camera_screen.dart';
-import '../features/daily_log/daily_log_screen.dart';
-import '../features/analytics/analytics_screen.dart';
-import '../features/settings/settings_screen.dart';
+import '../features/insights/merged_insights_screen.dart';
+import '../features/workouts/workouts_screen.dart';
 
 /// 🎨 Vibrant Gen Z Main Scaffold with bottom navigation
-/// Note: Favorites is accessible via the heart button on Camera screen
+/// V3 Layout: 3 tabs - Home, Insights, Workouts
+/// Settings accessible via hamburger menu on Home screen
 class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
 
@@ -15,21 +15,19 @@ class MainScaffold extends ConsumerStatefulWidget {
 }
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
-  int _currentIndex = 0; // Start on Camera (Snap) screen
+  int _currentIndex = 0; // Start on Home (Camera) screen
 
   final _screens = const [
-    CameraScreen(),
-    DailyLogScreen(),
-    AnalyticsScreen(),
-    SettingsScreen(),
+    CameraScreen(),           // Home - Snap meals with AI
+    MergedInsightsScreen(),   // Insights - Daily log + Analytics + Wearables
+    WorkoutsScreen(),         // Workouts - Exercise splits + Wearables
   ];
 
-  // 🎨 Color-coded colors for each tab (Favorites removed - now on Camera screen)
+  // 🎨 Color-coded colors for each tab
   static const _tabColors = [
-    Color(0xFF7C3AED), // Purple for Camera
-    Color(0xFFEC4899), // Pink for Today
-    Color(0xFF3B82F6), // Blue for Insights
-    Color(0xFFFBBF24), // Yellow for Settings
+    Color(0xFF7C3AED), // Purple for Home
+    Color(0xFFEC4899), // Pink for Insights
+    Color(0xFFFF6B35), // Orange for Workouts
   ];
 
   @override
@@ -55,10 +53,9 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.camera_alt, 'Snap', _tabColors[0]),
-              _buildNavItem(1, Icons.restaurant, 'Today', _tabColors[1]),
-              _buildNavItem(2, Icons.insights, 'Insights', _tabColors[2]),
-              _buildNavItem(3, Icons.settings, 'Settings', _tabColors[3]),
+              _buildNavItem(0, Icons.camera_alt, 'Home', _tabColors[0]),
+              _buildNavItem(1, Icons.insights, 'Insights', _tabColors[1]),
+              _buildNavItem(2, Icons.fitness_center, 'Workouts', _tabColors[2]),
             ],
           ),
         ),

@@ -10,6 +10,8 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../search/search_screen.dart';
 import '../favorites/favorites_screen.dart';
+import '../auth/data/auth_repository.dart';
+import '../about/about_screen.dart';
 import 'image_preview_screen.dart';
 
 /// Camera screen - Primary home view
@@ -326,6 +328,169 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
     );
   }
 
+  void _handleMenuSelection(String value) {
+    switch (value) {
+      case 'settings':
+        AppNavigator.toSettings(context);
+        break;
+      case 'about':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const AboutScreen()),
+        );
+        break;
+      case 'privacy':
+        _showPrivacyPolicy();
+        break;
+      case 'help':
+        _showHelpFAQ();
+        break;
+      case 'signout':
+        _showSignOutDialog();
+        break;
+    }
+  }
+
+  void _showPrivacyPolicy() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.privacy_tip, color: Colors.purple),
+            SizedBox(width: 8),
+            Text('Privacy Policy'),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '🔒 Your Privacy Matters',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 12),
+              Text('• Photos are processed in memory and never stored'),
+              SizedBox(height: 8),
+              Text('• All data is stored locally on your device'),
+              SizedBox(height: 8),
+              Text('• API keys are encrypted using secure storage'),
+              SizedBox(height: 8),
+              Text('• Only connects to Claude/Gemini APIs via HTTPS'),
+              SizedBox(height: 8),
+              Text('• No tracking, no analytics, no third-party data sharing'),
+              SizedBox(height: 16),
+              Text(
+                'We believe in minimal data collection and maximum privacy.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpFAQ() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Help & FAQ'),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '📸 How to use Kaloree',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '1. Point your camera at your meal',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text('   AI will automatically identify food items'),
+              SizedBox(height: 8),
+              Text(
+                '2. Review and confirm',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text('   Check the detected items and nutritional info'),
+              SizedBox(height: 8),
+              Text(
+                '3. Track your progress',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text('   View daily totals and analytics in the Insights tab'),
+              SizedBox(height: 16),
+              Text(
+                '💡 Tips',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text('• Good lighting helps AI recognition'),
+              Text('• You can also search foods manually'),
+              Text('• Add favorites for quick logging'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it!'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSignOutDialog() {
+    final authRepo = ref.read(authRepositoryProvider);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out?'),
+        content: const Text(
+          'Are you sure you want to sign out? You will need to sign in again to access your data.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await authRepo.signOut();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Signed out successfully')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -436,8 +601,75 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
                     ),
                   ),
                   
-                  // Empty space to balance the layout
-                  const SizedBox(width: 48),
+                  // Hamburger menu button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: PopupMenuButton<String>(
+                      onSelected: _handleMenuSelection,
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      tooltip: 'Menu',
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'settings',
+                          child: Row(
+                            children: [
+                              Icon(Icons.settings, size: 20),
+                              SizedBox(width: 12),
+                              Text('Settings'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'about',
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 20),
+                              SizedBox(width: 12),
+                              Text('About'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'privacy',
+                          child: Row(
+                            children: [
+                              Icon(Icons.privacy_tip_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Privacy Policy'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'help',
+                          child: Row(
+                            children: [
+                              Icon(Icons.help_outline, size: 20),
+                              SizedBox(width: 12),
+                              Text('Help & FAQ'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'signout',
+                          child: Row(
+                            children: [
+                              Icon(Icons.logout, size: 20, color: Colors.red.shade600),
+                              const SizedBox(width: 12),
+                              Text('Sign Out', style: TextStyle(color: Colors.red.shade600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
