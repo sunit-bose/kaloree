@@ -2,7 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Secure storage service for API keys
-/// Uses Android Keystore for hardware-backed encryption
+/// Uses Android Keystore / iOS Keychain for hardware-backed encryption
 /// Keys are NEVER stored in SQLite or logs
 class SecureStorageService {
   static const _storage = FlutterSecureStorage(
@@ -17,35 +17,14 @@ class SecureStorageService {
   );
 
   // Key identifiers
-  static const _claudeApiKey = 'claude_api_key';
   static const _geminiApiKey = 'gemini_api_key';
-  static const _selectedProvider = 'selected_provider';
 
   // ============================================
-  // API KEY MANAGEMENT
+  // GOOGLE GEMINI API KEY MANAGEMENT
   // ============================================
 
-  /// Store Claude API key securely
-  Future<void> setClaudeApiKey(String apiKey) async {
-    if (apiKey.isEmpty) {
-      await _storage.delete(key: _claudeApiKey);
-    } else {
-      await _storage.write(key: _claudeApiKey, value: apiKey);
-    }
-  }
-
-  /// Retrieve Claude API key (only in memory during use)
-  Future<String?> getClaudeApiKey() async {
-    return await _storage.read(key: _claudeApiKey);
-  }
-
-  /// Check if Claude API key exists
-  Future<bool> hasClaudeApiKey() async {
-    final key = await _storage.read(key: _claudeApiKey);
-    return key != null && key.isNotEmpty;
-  }
-
-  /// Store Gemini API key securely
+  /// Store Google AI (Gemini) API key securely
+  /// Get your key from: https://aistudio.google.com/app/apikey
   Future<void> setGeminiApiKey(String apiKey) async {
     if (apiKey.isEmpty) {
       await _storage.delete(key: _geminiApiKey);
@@ -66,43 +45,17 @@ class SecureStorageService {
   }
 
   // ============================================
-  // PROVIDER SELECTION
-  // ============================================
-
-  /// Set selected LLM provider
-  Future<void> setSelectedProvider(LLMProvider provider) async {
-    await _storage.write(key: _selectedProvider, value: provider.name);
-  }
-
-  /// Get selected LLM provider
-  Future<LLMProvider> getSelectedProvider() async {
-    final value = await _storage.read(key: _selectedProvider);
-    if (value == 'gemini') return LLMProvider.gemini;
-    return LLMProvider.claude; // Default
-  }
-
-  // ============================================
   // CHECK CONFIGURATION STATUS
   // ============================================
 
-  /// Check if any API is configured
+  /// Check if API is configured (Gemini key present)
   Future<bool> isConfigured() async {
-    final provider = await getSelectedProvider();
-    if (provider == LLMProvider.claude) {
-      return await hasClaudeApiKey();
-    } else {
-      return await hasGeminiApiKey();
-    }
+    return await hasGeminiApiKey();
   }
 
-  /// Get the configured API key for the selected provider
+  /// Get the configured API key
   Future<String?> getActiveApiKey() async {
-    final provider = await getSelectedProvider();
-    if (provider == LLMProvider.claude) {
-      return await getClaudeApiKey();
-    } else {
-      return await getGeminiApiKey();
-    }
+    return await getGeminiApiKey();
   }
 
   // ============================================
@@ -115,30 +68,13 @@ class SecureStorageService {
   }
 }
 
-/// LLM Provider enum
-enum LLMProvider {
-  claude('Claude (Anthropic)'),
-  gemini('Gemini (Google)');
-
-  final String displayName;
-  const LLMProvider(this.displayName);
-}
-
 // Provider
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
 });
 
-
-
 // Configuration status provider
 final isApiConfiguredProvider = FutureProvider<bool>((ref) async {
   final storage = ref.watch(secureStorageProvider);
   return await storage.isConfigured();
-});
-
-// Selected provider state
-final selectedProviderProvider = FutureProvider<LLMProvider>((ref) async {
-  final storage = ref.watch(secureStorageProvider);
-  return await storage.getSelectedProvider();
 });

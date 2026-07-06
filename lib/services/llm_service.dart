@@ -14,7 +14,11 @@ class LLMException implements Exception {
   String toString() => message;
 }
 
-/// LLM Service - handles meal image analysis with multiple AI providers
+/// LLM Service - handles meal image analysis with Google Gemini
+/// 
+/// Google AI Studio API Key Integration:
+/// - Get your API key from https://aistudio.google.com/app/apikey
+/// - Keys are stored securely using device keychain
 class LLMService {
   final Dio _dio;
   final SecureStorageService _secureStorage;
@@ -27,87 +31,42 @@ class LLMService {
 
   /// Analyze meal image and return structured nutritional data
   Future<MealAnalysis> analyzeMealImage(Uint8List imageBytes) async {
-    final provider = await _secureStorage.getSelectedProvider();
-    final apiKey = await _secureStorage.getActiveApiKey();
+    final apiKey = await _secureStorage.getGeminiApiKey();
 
     if (apiKey == null || apiKey.isEmpty) {
-      throw LLMException('API key not configured. Please add your API key in Settings.');
+      throw const LLMException('API key not configured. Please add your Google AI API key in Settings.');
     }
 
-    // Validate API key format for different providers
-    if (provider == LLMProvider.gemini && !apiKey.startsWith('AI')) {
-      throw LLMException('Invalid Gemini API key format. Key must start with "AI". Please check your API key in Settings.');
-    } else if (provider == LLMProvider.claude && !apiKey.startsWith('sk-ant-')) {
-      throw LLMException('Invalid Claude API key format. Key must start with "sk-ant-". Please check your API key in Settings.');
+    // Validate API key format - Google AI keys typically start with 'AI'
+    if (!apiKey.startsWith('AI')) {
+      throw const LLMException('Invalid Google AI API key format. Key should start with "AI". Get your key from aistudio.google.com');
     }
 
     try {
-      if (provider == LLMProvider.claude) {
-        return await _analyzeWithClaude(imageBytes, apiKey);
-      } else {
-        return await _analyzeWithGemini(imageBytes, apiKey);
-      }
+      return await _analyzeWithGemini(imageBytes, apiKey);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw LLMException('Invalid API key. Please check your API key in Settings.');
+      if (e.response?.statusCode == 400) {
+        final errorMessage = e.response?.data?['error']?['message'] ?? 'Invalid request';
+        throw LLMException('API error: $errorMessage');
+      } else if (e.response?.statusCode == 401) {
+        throw const LLMException('Invalid API key. Please check your Google AI API key in Settings.');
       } else if (e.response?.statusCode == 403) {
-        throw LLMException('API access forbidden. Please check your API key permissions.');
+        throw const LLMException('API access forbidden. Please verify your API key has access to Gemini models.');
       } else if (e.response?.statusCode == 404) {
-        throw LLMException('API endpoint not found. The selected model may not be available.');
+        throw const LLMException('API endpoint not found. The Gemini model may not be available.');
       } else if (e.response?.statusCode == 429) {
-        throw LLMException('Rate limit exceeded. Please try again in a moment.');
+        throw const LLMException('Rate limit exceeded. Please try again in a moment.');
       } else if (e.type == DioExceptionType.connectionTimeout) {
-        throw LLMException('Connection timeout. Please check your internet connection.');
+        throw const LLMException('Connection timeout. Please check your internet connection.');
       }
       throw LLMException('API error: ${e.message}');
     } catch (e) {
+      if (e is LLMException) rethrow;
       throw LLMException('Failed to analyze image: $e');
     }
   }
 
-  /// Analyze with Claude API
-  Future<MealAnalysis> _analyzeWithClaude(Uint8List imageBytes, String apiKey) async {
-    final base64Image = base64Encode(imageBytes);
-
-    final response = await _dio.post(
-      'https://api.anthropic.com/v1/messages',
-      options: Options(
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-          'x-api-key': apiKey,
-        },
-      ),
-      data: {
-        'model': 'claude-sonnet-4-20250514',
-        'max_tokens': 1024,
-        'messages': [
-          {
-            'role': 'user',
-            'content': [
-              {
-                'type': 'image',
-                'source': {
-                  'type': 'base64',
-                  'media_type': 'image/jpeg',
-                  'data': base64Image,
-                },
-              },
-              {
-                'type': 'text',
-                'text': _getPrompt(),
-              },
-            ],
-          },
-        ],
-      },
-    );
-
-    final content = response.data['content'][0]['text'] as String;
-    return _parseResponse(content, 'ai');
-  }
-
-  /// Analyze with Gemini API (using Gemini 2.0 Flash - stable production model)
+  /// Analyze with Google Gemini API (using Gemini 2.0 Flash - stable production model)
   Future<MealAnalysis> _analyzeWithGemini(Uint8List imageBytes, String apiKey) async {
     final base64Image = base64Encode(imageBytes);
 
@@ -196,7 +155,7 @@ Guidelines:
       // Check if the image contains food
       final isFood = data['isFood'] ?? true;
       if (!isFood) {
-        throw LLMException('NOT_FOOD'); // Special marker for non-food images
+        throw const LLMException('NOT_FOOD'); // Special marker for non-food images
       }
 
       final items = (data['items'] as List<dynamic>).map((item) {

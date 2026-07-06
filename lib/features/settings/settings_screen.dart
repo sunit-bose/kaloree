@@ -35,7 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 32),
           Text('🤖 AI Configuration', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text('Add your own API key to enable AI meal analysis. Keys are stored securely on your device.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          Text('Add your Google AI API key to enable AI meal analysis. Keys are stored securely on your device.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
           _ApiConfigCard(),
 
@@ -66,9 +66,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const Divider(height: 24),
                   _PrivacyItem(icon: Icons.storage_outlined, iconColor: Colors.green.shade400, title: 'Data Storage', description: 'All data stored locally on your device only'),
                   const Divider(height: 24),
-                  _PrivacyItem(icon: Icons.key_outlined, iconColor: Colors.purple.shade400, title: 'API Keys', description: 'Encrypted using Android Keystore'),
+                  _PrivacyItem(icon: Icons.key_outlined, iconColor: Colors.purple.shade400, title: 'API Keys', description: 'Encrypted using device Keychain/Keystore'),
                   const Divider(height: 24),
-                  _PrivacyItem(icon: Icons.wifi_outlined, iconColor: Colors.orange.shade400, title: 'Network', description: 'Only connects to Claude/Gemini APIs (HTTPS)'),
+                  _PrivacyItem(icon: Icons.wifi_outlined, iconColor: Colors.orange.shade400, title: 'Network', description: 'Only connects to Google AI API (HTTPS)'),
                 ],
               ),
             ),
@@ -126,16 +126,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
+/// API Configuration Card - Google AI (Gemini) only
 class _ApiConfigCard extends ConsumerStatefulWidget {
   @override
   ConsumerState<_ApiConfigCard> createState() => _ApiConfigCardState();
 }
 
 class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
-  LLMProvider _selectedProvider = LLMProvider.claude;
   bool _isLoading = true;
-  bool _hasClaudeKey = false;
-  bool _hasGeminiKey = false;
+  bool _hasApiKey = false;
 
   @override
   void initState() {
@@ -145,38 +144,71 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
 
   Future<void> _loadConfig() async {
     final storage = ref.read(secureStorageProvider);
-    final provider = await storage.getSelectedProvider();
-    final hasClaudeKey = await storage.hasClaudeApiKey();
-    final hasGeminiKey = await storage.hasGeminiApiKey();
+    final hasKey = await storage.hasGeminiApiKey();
     setState(() {
-      _selectedProvider = provider;
-      _hasClaudeKey = hasClaudeKey;
-      _hasGeminiKey = hasGeminiKey;
+      _hasApiKey = hasKey;
       _isLoading = false;
     });
   }
 
-  Future<void> _setProvider(LLMProvider provider) async {
-    await ref.read(secureStorageProvider).setSelectedProvider(provider);
-    setState(() => _selectedProvider = provider);
-  }
-
-  void _showApiKeyDialog(LLMProvider provider) {
+  void _showApiKeyDialog() {
     final controller = TextEditingController();
     final isObscured = ValueNotifier(true);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${provider.displayName} API Key'),
+        title: Row(
+          children: [
+            Image.network(
+              'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
+              width: 24,
+              height: 24,
+              errorBuilder: (_, __, ___) => const Icon(Icons.auto_awesome, color: Colors.blue),
+            ),
+            const SizedBox(width: 8),
+            const Text('Google AI API Key'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              provider == LLMProvider.claude ? 'Get your key from console.anthropic.com' :
-              'Get your key from makersuite.google.com',
-              style: Theme.of(context).textTheme.bodySmall,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Get your free API key from Google AI Studio',
+                      style: TextStyle(color: Colors.blue.shade700, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () {
+                // Could open URL here with url_launcher
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Visit: aistudio.google.com/app/apikey')),
+                );
+              },
+              child: Text(
+                'aistudio.google.com/app/apikey',
+                style: TextStyle(
+                  color: Colors.blue.shade600,
+                  decoration: TextDecoration.underline,
+                  fontSize: 12,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             ValueListenableBuilder<bool>(
@@ -187,7 +219,8 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
                   obscureText: obscured,
                   decoration: InputDecoration(
                     labelText: 'API Key',
-                    hintText: provider == LLMProvider.claude ? 'sk-ant-...' : 'AI...',
+                    hintText: 'AIza...',
+                    prefixIcon: const Icon(Icons.key),
                     suffixIcon: IconButton(
                       icon: Icon(obscured ? Icons.visibility : Icons.visibility_off),
                       onPressed: () => isObscured.value = !obscured,
@@ -200,21 +233,61 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () async {
               final key = controller.text.trim();
               if (key.isEmpty) return;
-              final storage = ref.read(secureStorageProvider);
-              if (provider == LLMProvider.claude) {
-                await storage.setClaudeApiKey(key);
-              } else {
-                await storage.setGeminiApiKey(key);
+              
+              // Basic validation
+              if (!key.startsWith('AI')) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid key format. Google AI keys start with "AI"'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
               }
+              
+              final storage = ref.read(secureStorageProvider);
+              await storage.setGeminiApiKey(key);
               Navigator.pop(context);
               await _loadConfig();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key saved securely')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✓ API key saved securely'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
-            child: const Text('Save'),
+            icon: const Icon(Icons.save),
+            label: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRemoveKeyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove API Key?'),
+        content: const Text('This will remove your Google AI API key. You can add it again later.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final storage = ref.read(secureStorageProvider);
+              await storage.setGeminiApiKey('');
+              Navigator.pop(context);
+              await _loadConfig();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('API key removed')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -224,7 +297,14 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (_isLoading) return const Card(child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())));
+    if (_isLoading) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
 
     return Card(
       child: Padding(
@@ -232,48 +312,99 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Select Provider', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            ...LLMProvider.values.map((provider) {
-              final hasKey = provider == LLMProvider.claude ? _hasClaudeKey : _hasGeminiKey;
-              return RadioListTile<LLMProvider>(
-                title: Text(provider.displayName),
-                subtitle: Text(hasKey ? 'API key configured ✓' : 'No API key'),
-                value: provider,
-                groupValue: _selectedProvider,
-                onChanged: (value) { if (value != null) _setProvider(value); },
-                secondary: IconButton(icon: Icon(hasKey ? Icons.edit : Icons.add), onPressed: () => _showApiKeyDialog(provider)),
-                contentPadding: EdgeInsets.zero,
-              );
-            }),
-            const SizedBox(height: 8),
-            Builder(
-              builder: (context) {
-                final hasKey = _selectedProvider == LLMProvider.claude ? _hasClaudeKey : _hasGeminiKey;
-                return Container(
-                  padding: const EdgeInsets.all(12),
+            // Google AI Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: hasKey ? Colors.green.shade50 : Colors.orange.shade50,
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.purple.shade400],
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
+                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        hasKey ? Icons.check_circle : Icons.warning,
-                        color: hasKey ? Colors.green : Colors.orange,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          hasKey ? 'Ready to analyze meals' : 'Add an API key to enable AI analysis',
-                          style: TextStyle(color: hasKey ? Colors.green.shade700 : Colors.orange.shade700),
-                        ),
-                      ),
+                      Text('Google AI (Gemini)', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text('Gemini 2.0 Flash', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
                     ],
                   ),
-                );
-              },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Status Card
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _hasApiKey ? Colors.green.shade50 : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _hasApiKey ? Colors.green.shade200 : Colors.orange.shade200,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _hasApiKey ? Icons.check_circle : Icons.warning_amber_rounded,
+                    color: _hasApiKey ? Colors.green.shade600 : Colors.orange.shade600,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _hasApiKey ? 'Ready to analyze meals' : 'API key required',
+                          style: TextStyle(
+                            color: _hasApiKey ? Colors.green.shade700 : Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _hasApiKey 
+                            ? 'Your key is stored securely' 
+                            : 'Add your Google AI API key to enable AI features',
+                          style: TextStyle(
+                            color: _hasApiKey ? Colors.green.shade600 : Colors.orange.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showApiKeyDialog,
+                    icon: Icon(_hasApiKey ? Icons.edit : Icons.add),
+                    label: Text(_hasApiKey ? 'Change Key' : 'Add Key'),
+                  ),
+                ),
+                if (_hasApiKey) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _showRemoveKeyDialog,
+                    icon: const Icon(Icons.delete_outline),
+                    color: Colors.red,
+                    tooltip: 'Remove API key',
+                  ),
+                ],
+              ],
             ),
           ],
         ),
