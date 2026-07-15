@@ -78,24 +78,34 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
     });
   }
   
+  /// Dismiss all alerts
+  void _dismissAllAlerts() {
+    setState(() {
+      for (final alert in _allAlerts) {
+        if (!alert.isDismissed) {
+          alert.dismiss();
+        }
+      }
+    });
+  }
+  
   /// Show all alerts in a dialog
-  void _showAlertsDialog() {
-    showModalBottomSheet(
+  void _showAlertsDialog() async {
+    final result = await HealthAlertsDialog.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => HealthAlertsDialog(
-        alerts: _allAlerts,
-        onDismiss: _dismissAlert,
-        onDismissAll: () {
-          setState(() {
-            for (final alert in _allAlerts) {
-              alert.dismiss();
-            }
-          });
-        },
-      ),
+      alerts: _allAlerts,
+      mealName: _items.isNotEmpty ? _items.first.name : 'This meal',
+      onAlertsUpdated: (updatedAlerts) {
+        setState(() {
+          _allAlerts = updatedAlerts;
+        });
+      },
     );
+    
+    // If user pressed "Save Anyway", proceed with save
+    if (result == true) {
+      _saveToLog();
+    }
   }
 
   /// Consolidates duplicate food items by name, combining their nutritional values
@@ -192,8 +202,12 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
     
     // Check for critical undismissed alerts
     if (_hasCriticalAlerts) {
-      final proceed = await showCriticalAlertConfirmDialog(context);
-      if (!proceed) {
+      final criticalCount = _activeAlerts.where((a) => a.isCritical).length;
+      final proceed = await CriticalAlertConfirmDialog.show(
+        context: context,
+        criticalCount: criticalCount,
+      );
+      if (proceed != true) {
         _showAlertsDialog();
         return;
       }
@@ -313,7 +327,8 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
             if (_activeAlerts.isNotEmpty) ...[
               HealthAlertBanner(
                 alerts: _activeAlerts,
-                onTap: _showAlertsDialog,
+                onViewAll: _showAlertsDialog,
+                onDismissAll: _dismissAllAlerts,
               ),
               const SizedBox(height: 16),
             ],

@@ -35,6 +35,9 @@ dependencies:
   path_provider: ^2.1.1
   path: ^1.8.3
   
+  # Shared Preferences - For health alert preferences
+  shared_preferences: ^2.2.2
+  
   # Secure Storage - For API keys (uses Android Keystore)
   flutter_secure_storage: ^9.0.0
   
