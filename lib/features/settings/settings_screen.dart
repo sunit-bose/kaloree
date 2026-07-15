@@ -238,11 +238,11 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
               final key = controller.text.trim();
               if (key.isEmpty) return;
               
-              // Basic validation
-              if (!key.startsWith('AI')) {
+              // Basic validation - accept both legacy 'AI' keys and new 'AQ' auth keys (since June 2026)
+              if (!key.startsWith('AI') && !key.startsWith('AQ')) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Invalid key format. Google AI keys start with "AI"'),
+                    content: Text('Invalid key format. Google AI keys start with "AI" or "AQ"'),
                     backgroundColor: Colors.orange,
                   ),
                 );

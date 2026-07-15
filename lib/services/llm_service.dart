@@ -37,9 +37,10 @@ class LLMService {
       throw const LLMException('API key not configured. Please add your Google AI API key in Settings.');
     }
 
-    // Validate API key format - Google AI keys typically start with 'AI'
-    if (!apiKey.startsWith('AI')) {
-      throw const LLMException('Invalid Google AI API key format. Key should start with "AI". Get your key from aistudio.google.com');
+    // Validate API key format - Google AI keys can start with 'AI' (legacy Standard keys) or 'AQ' (new Auth keys)
+    // As of June 2026, Auth keys (AQ prefix) are the default for new keys
+    if (!apiKey.startsWith('AI') && !apiKey.startsWith('AQ')) {
+      throw const LLMException('Invalid Google AI API key format. Keys should start with "AI" or "AQ". Get your key from aistudio.google.com');
     }
 
     try {
@@ -51,9 +52,9 @@ class LLMService {
       } else if (e.response?.statusCode == 401) {
         throw const LLMException('Invalid API key. Please check your Google AI API key in Settings.');
       } else if (e.response?.statusCode == 403) {
-        throw const LLMException('API access forbidden. Please verify your API key has access to Gemini models.');
+        throw const LLMException('API access forbidden. Please regenerate your API key from aistudio.google.com');
       } else if (e.response?.statusCode == 404) {
-        throw const LLMException('API endpoint not found. The Gemini model may not be available.');
+        throw const LLMException('API endpoint not found. Please create a new API key from aistudio.google.com - older keys may no longer work.');
       } else if (e.response?.statusCode == 429) {
         throw const LLMException('Rate limit exceeded. Please try again in a moment.');
       } else if (e.type == DioExceptionType.connectionTimeout) {
@@ -66,15 +67,17 @@ class LLMService {
     }
   }
 
-  /// Analyze with Google Gemini API (using Gemini 2.0 Flash - stable production model)
+  /// Analyze with Google Gemini API (using Gemini 3.5 Flash - latest stable model)
   Future<MealAnalysis> _analyzeWithGemini(Uint8List imageBytes, String apiKey) async {
     final base64Image = base64Encode(imageBytes);
 
     final response = await _dio.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-      queryParameters: {'key': apiKey},
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
       options: Options(
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
       ),
       data: {
         'contents': [

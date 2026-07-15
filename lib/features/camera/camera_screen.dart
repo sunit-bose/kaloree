@@ -194,11 +194,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
       // Step 1: Check API configuration FIRST
       final secureStorage = ref.read(secureStorageProvider);
       final isConfigured = await secureStorage.isConfigured();
-      final selectedProvider = await secureStorage.getSelectedProvider();
       final activeKey = await secureStorage.getActiveApiKey();
       
       print('🔑 DEBUG: API configured: $isConfigured');
-      print('🔑 DEBUG: Selected provider: ${selectedProvider.name}');
+      print('🔑 DEBUG: Provider: Google AI (Gemini)');
       print('🔑 DEBUG: Has active key: ${activeKey != null && activeKey.isNotEmpty}');
 
       if (!isConfigured) {
@@ -377,7 +376,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
               SizedBox(height: 8),
               Text('• API keys are encrypted using secure storage'),
               SizedBox(height: 8),
-              Text('• Only connects to Claude/Gemini APIs via HTTPS'),
+              Text('• Only connects to Google AI API via HTTPS'),
               SizedBox(height: 8),
               Text('• No tracking, no analytics, no third-party data sharing'),
               SizedBox(height: 16),
