@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/meal_analysis.dart';
+import '../../models/health_alert.dart';
 import '../../services/database_service.dart';
+import '../../services/health_alert_service.dart';
+import '../../widgets/health_alert_card.dart';
+import '../../widgets/health_alert_dialog.dart';
 import '../../app/theme.dart';
 
 // Provider to trigger diary refresh
@@ -23,6 +27,9 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
   MealType? _selectedMealType;
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+  
+  // Health alerts
+  List<HealthAlert> _allAlerts = [];
 
   @override
   void initState() {
@@ -30,6 +37,65 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
     // Consolidate duplicate items by name (e.g., "2 eggs" becomes one row with combined nutrition)
     _items = _consolidateItems(widget.analysis.items);
     _inferMealType();
+    
+    // Check for health alerts after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkHealthAlerts();
+    });
+  }
+  
+  /// Check all food items for health alerts based on user preferences
+  void _checkHealthAlerts() {
+    final healthAlertService = ref.read(healthAlertServiceProvider);
+    final prefs = ref.read(healthAlertPreferencesProvider);
+    
+    if (!prefs.alertsEnabled) {
+      setState(() => _allAlerts = []);
+      return;
+    }
+    
+    final alerts = <HealthAlert>[];
+    for (final item in _items) {
+      final itemAlerts = healthAlertService.checkFoodItem(item, prefs);
+      alerts.addAll(itemAlerts);
+    }
+    
+    setState(() => _allAlerts = alerts);
+  }
+  
+  /// Get only active (non-dismissed) alerts
+  List<HealthAlert> get _activeAlerts =>
+      _allAlerts.where((a) => !a.isDismissed).toList();
+  
+  /// Check if there are any critical alerts
+  bool get _hasCriticalAlerts =>
+      _activeAlerts.any((a) => a.severity == AlertSeverity.critical);
+  
+  /// Dismiss an alert
+  void _dismissAlert(HealthAlert alert, {String? reason}) {
+    setState(() {
+      alert.dismiss(reason: reason);
+    });
+  }
+  
+  /// Show all alerts in a dialog
+  void _showAlertsDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => HealthAlertsDialog(
+        alerts: _allAlerts,
+        onDismiss: _dismissAlert,
+        onDismissAll: () {
+          setState(() {
+            for (final alert in _allAlerts) {
+              alert.dismiss();
+            }
+          });
+        },
+      ),
+    );
   }
 
   /// Consolidates duplicate food items by name, combining their nutritional values
@@ -122,6 +188,15 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
         const SnackBar(content: Text('Add at least one item')),
       );
       return;
+    }
+    
+    // Check for critical undismissed alerts
+    if (_hasCriticalAlerts) {
+      final proceed = await showCriticalAlertConfirmDialog(context);
+      if (!proceed) {
+        _showAlertsDialog();
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -233,6 +308,15 @@ class _MealInfoScreenState extends ConsumerState<MealInfoScreen> {
                 ],
               ),
             ),
+
+            // Health Alerts Banner (if any)
+            if (_activeAlerts.isNotEmpty) ...[
+              HealthAlertBanner(
+                alerts: _activeAlerts,
+                onTap: _showAlertsDialog,
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Date selector
             Padding(

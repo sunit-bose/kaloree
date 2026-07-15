@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app/theme.dart';
 import 'services/database_service.dart';
+import 'services/health_alert_service.dart';
 import 'widgets/main_scaffold.dart';
 import 'widgets/brand_hero.dart';
 import 'features/splash/splash_screen.dart';
@@ -44,10 +46,15 @@ void main() async {
   final database = AppDatabase();
   await database.initializeDefaultData();
   
+  // Initialize SharedPreferences for health alert preferences
+  final sharedPrefs = await SharedPreferences.getInstance();
+  final healthAlertService = HealthAlertService(sharedPrefs);
+  
   runApp(
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(database),
+        healthAlertServiceProvider.overrideWithValue(healthAlertService),
       ],
       child: const KaloreeApp(),
     ),

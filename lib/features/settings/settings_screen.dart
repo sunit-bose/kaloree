@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/database_service.dart';
 import '../../services/tdee_calculator.dart';
+import '../../services/health_alert_service.dart';
 import '../../models/meal_analysis.dart';
+import '../../models/health_alert.dart';
 import '../auth/data/auth_repository.dart';
 import '../../app/theme.dart';
 
@@ -45,6 +47,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Text('Enter your details to calculate personalized nutrition goals using the Mifflin-St Jeor equation.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
           _ProfileCard(),
+
+          const SizedBox(height: 32),
+          Text('⚠️ Health Alerts', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('Get personalized alerts when scanned foods may affect your health conditions.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          const SizedBox(height: 16),
+          _HealthAlertsCard(),
 
           const SizedBox(height: 32),
           Text('🎯 Calculated Goals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
@@ -1149,6 +1158,456 @@ class _PrivacyItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Health Alerts Settings Card - Categorized toggles for health conditions
+class _HealthAlertsCard extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_HealthAlertsCard> createState() => _HealthAlertsCardState();
+}
+
+class _HealthAlertsCardState extends ConsumerState<_HealthAlertsCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final prefs = ref.watch(healthAlertPreferencesProvider);
+    final notifier = ref.read(healthAlertPreferencesProvider.notifier);
+    final enabledCount = prefs.enabledConditionCount;
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Master Switch Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: prefs.alertsEnabled
+                        ? Colors.orange.shade50
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.health_and_safety,
+                    color: prefs.alertsEnabled
+                        ? Colors.orange.shade600
+                        : Colors.grey.shade400,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Health Alerts',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        prefs.alertsEnabled
+                            ? '$enabledCount condition${enabledCount == 1 ? '' : 's'} configured'
+                            : 'Alerts disabled',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: prefs.alertsEnabled,
+                  onChanged: (_) => notifier.toggleAlertsEnabled(),
+                  activeColor: Colors.orange.shade600,
+                ),
+              ],
+            ),
+          ),
+
+          if (prefs.alertsEnabled) ...[
+            const Divider(height: 1),
+
+            // Medical Disclaimer
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'These alerts are for informational purposes only and do not replace medical advice. Always consult your healthcare provider.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Expand/Collapse Button
+            InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      _isExpanded ? 'Hide conditions' : 'Configure conditions',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.kaloreePurple,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: AppTheme.kaloreePurple,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_isExpanded) ...[
+              const Divider(height: 1),
+
+              // === METABOLIC & CARDIOVASCULAR ===
+              _buildCategoryHeader(
+                theme,
+                '🫀 Metabolic & Cardiovascular',
+                Colors.red.shade400,
+              ),
+              _buildToggle(
+                'Gout',
+                'Alert on high purine foods',
+                prefs.hasGout,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasGout: v)),
+              ),
+              _buildToggle(
+                'Diabetes',
+                'Alert on high glycemic index foods',
+                prefs.hasDiabetes,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasDiabetes: v)),
+              ),
+              _buildToggle(
+                'Hypertension',
+                'Alert on high sodium foods',
+                prefs.hasHypertension,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasHypertension: v)),
+              ),
+              _buildToggle(
+                'Heart Disease',
+                'Alert on high cholesterol/saturated fat',
+                prefs.hasHeartDisease,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasHeartDisease: v)),
+              ),
+
+              // === KIDNEY HEALTH ===
+              _buildCategoryHeader(
+                theme,
+                '🫘 Kidney Health',
+                Colors.brown.shade400,
+              ),
+              _buildToggle(
+                'Kidney Disease',
+                'Alert on high potassium/phosphorus foods',
+                prefs.hasKidneyDisease,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasKidneyDisease: v)),
+              ),
+              _buildToggle(
+                'Kidney Stones',
+                'Alert on high oxalate foods',
+                prefs.hasKidneyStones,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasKidneyStones: v)),
+              ),
+
+              // === DIGESTIVE HEALTH ===
+              _buildCategoryHeader(
+                theme,
+                '🍽️ Digestive Health',
+                Colors.green.shade400,
+              ),
+              _buildToggle(
+                'IBS',
+                'Alert on high FODMAP foods',
+                prefs.hasIBS,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasIBS: v)),
+              ),
+              _buildToggle(
+                'Histamine Intolerance',
+                'Alert on high histamine foods',
+                prefs.hasHistamineIntolerance,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasHistamineIntolerance: v)),
+              ),
+              _buildToggle(
+                'Autoimmune Condition',
+                'Alert on nightshade vegetables',
+                prefs.hasAutoimmune,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasAutoimmune: v)),
+              ),
+
+              // === THYROID & RARE ===
+              _buildCategoryHeader(
+                theme,
+                '🦋 Thyroid & Rare Conditions',
+                Colors.purple.shade400,
+              ),
+              _buildToggle(
+                'Thyroid Condition',
+                'Alert on goitrogen-containing foods',
+                prefs.hasThyroidCondition,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasThyroidCondition: v)),
+              ),
+              _buildToggle(
+                'PKU (Phenylketonuria)',
+                'Alert on high phenylalanine foods',
+                prefs.hasPKU,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasPKU: v)),
+              ),
+              _buildToggle(
+                'Wilson\'s Disease',
+                'Alert on high copper foods',
+                prefs.hasWilsonDisease,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasWilsonDisease: v)),
+              ),
+
+              // === ALLERGENS ===
+              _buildCategoryHeader(
+                theme,
+                '⚠️ Allergens',
+                Colors.orange.shade600,
+              ),
+              _buildToggle(
+                'Nut Allergy',
+                'Alert on foods containing nuts',
+                prefs.allergyNuts,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergyNuts: v)),
+              ),
+              _buildToggle(
+                'Dairy Allergy',
+                'Alert on foods containing dairy',
+                prefs.allergyDairy,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergyDairy: v)),
+              ),
+              _buildToggle(
+                'Gluten Intolerance',
+                'Alert on foods containing gluten',
+                prefs.allergyGluten,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergyGluten: v)),
+              ),
+              _buildToggle(
+                'Shellfish Allergy',
+                'Alert on foods containing shellfish',
+                prefs.allergyShellfish,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergyShellfish: v)),
+              ),
+              _buildToggle(
+                'Egg Allergy',
+                'Alert on foods containing eggs',
+                prefs.allergyEggs,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergyEggs: v)),
+              ),
+              _buildToggle(
+                'Soy Allergy',
+                'Alert on foods containing soy',
+                prefs.allergySoy,
+                (v) => notifier.updatePreference((p) => p.copyWith(allergySoy: v)),
+              ),
+
+              // === LIFE STAGE ===
+              _buildCategoryHeader(
+                theme,
+                '🤰 Life Stage',
+                Colors.pink.shade400,
+              ),
+              _buildToggle(
+                'Pregnant',
+                'Alert on mercury, raw foods, alcohol',
+                prefs.isPregnant,
+                (v) => notifier.updatePreference((p) => p.copyWith(isPregnant: v)),
+              ),
+              _buildToggle(
+                'Breastfeeding',
+                'Alert on high caffeine, alcohol',
+                prefs.isBreastfeeding,
+                (v) => notifier.updatePreference((p) => p.copyWith(isBreastfeeding: v)),
+              ),
+              _buildToggle(
+                'In Recovery',
+                'Alert on alcohol-containing foods',
+                prefs.inRecovery,
+                (v) => notifier.updatePreference((p) => p.copyWith(inRecovery: v)),
+              ),
+
+              // === MEDICATION INTERACTIONS ===
+              _buildCategoryHeader(
+                theme,
+                '💊 Medication Interactions',
+                Colors.blue.shade600,
+              ),
+              _buildToggle(
+                'Warfarin / Blood Thinners',
+                'Alert on high Vitamin K foods',
+                prefs.takesWarfarin,
+                (v) => notifier.updatePreference((p) => p.copyWith(takesWarfarin: v)),
+              ),
+              _buildToggle(
+                'MAO Inhibitors',
+                'Alert on high tyramine foods',
+                prefs.takesMAOInhibitors,
+                (v) => notifier.updatePreference((p) => p.copyWith(takesMAOInhibitors: v)),
+              ),
+              _buildToggle(
+                'Grapefruit Interaction',
+                'Alert on grapefruit-containing foods',
+                prefs.hasGrapefruitInteraction,
+                (v) => notifier.updatePreference((p) => p.copyWith(hasGrapefruitInteraction: v)),
+              ),
+
+              // === GENERAL WELLNESS ===
+              _buildCategoryHeader(
+                theme,
+                '✅ General Wellness',
+                Colors.teal.shade400,
+              ),
+              _buildToggle(
+                'High Saturated Fat',
+                'Warn when food exceeds 5g saturated fat',
+                prefs.warnHighSaturatedFat,
+                (v) => notifier.updatePreference((p) => p.copyWith(warnHighSaturatedFat: v)),
+              ),
+              _buildToggle(
+                'High Cholesterol',
+                'Warn when food exceeds 100mg cholesterol',
+                prefs.warnHighCholesterol,
+                (v) => notifier.updatePreference((p) => p.copyWith(warnHighCholesterol: v)),
+              ),
+              _buildToggle(
+                'Trans Fat',
+                'Warn when food contains any trans fat',
+                prefs.warnHighTransFat,
+                (v) => notifier.updatePreference((p) => p.copyWith(warnHighTransFat: v)),
+              ),
+              _buildToggle(
+                'Very High Calories',
+                'Warn when single item exceeds 800 kcal',
+                prefs.warnVeryHighCalories,
+                (v) => notifier.updatePreference((p) => p.copyWith(warnVeryHighCalories: v)),
+              ),
+              _buildToggle(
+                'Raw/Undercooked Food',
+                'Warn about food safety concerns',
+                prefs.warnRawUndercooked,
+                (v) => notifier.updatePreference((p) => p.copyWith(warnRawUndercooked: v)),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Reset Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: () => _showResetDialog(notifier),
+                  icon: const Icon(Icons.restore, size: 18),
+                  label: const Text('Reset to Defaults'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryHeader(ThemeData theme, String title, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: color.withOpacity(0.1),
+      child: Text(
+        title,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle(
+    String title,
+    String subtitle,
+    bool value,
+    void Function(bool) onChanged,
+  ) {
+    return SwitchListTile(
+      title: Text(title, style: const TextStyle(fontSize: 14)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+      ),
+      value: value,
+      onChanged: onChanged,
+      activeColor: Colors.orange.shade600,
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    );
+  }
+
+  void _showResetDialog(HealthAlertPreferencesNotifier notifier) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Health Preferences?'),
+        content: const Text(
+          'This will reset all health conditions to their default values. '
+          'Only general wellness warnings will remain enabled.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              notifier.resetToDefaults();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Health preferences reset')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade600,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
     );
   }
 }
