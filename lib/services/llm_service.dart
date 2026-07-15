@@ -68,12 +68,12 @@ class LLMService {
     }
   }
 
-  /// Analyze with Google Gemini API (using Gemini 3.5 Flash - latest stable model)
+  /// Analyze with Google Gemini API (using Gemini 2.5 Flash - latest stable model)
   Future<MealAnalysis> _analyzeWithGemini(Uint8List imageBytes, String apiKey) async {
     final base64Image = base64Encode(imageBytes);
 
     final response = await _dio.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
       options: Options(
         headers: {
           'Content-Type': 'application/json',
