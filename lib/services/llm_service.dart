@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/health_alert.dart';
 import '../models/meal_analysis.dart';
 import 'secure_storage_service.dart';
 
@@ -97,7 +98,7 @@ class LLMService {
         ],
         'generationConfig': {
           'temperature': 0.2,
-          'maxOutputTokens': 1024,
+          'maxOutputTokens': 2048,  // Increased for health indicators
           'responseMimeType': 'application/json',
         },
       },
@@ -107,7 +108,7 @@ class LLMService {
     return _parseResponse(content, 'ai');
   }
 
-  /// Prompt for meal analysis
+  /// Prompt for meal analysis with health indicators
   String _getPrompt() {
     return '''
 Analyze this image and determine if it contains food items. If it's not food, return isFood: false.
@@ -124,7 +125,32 @@ Return your response in this exact JSON format:
       "protein": 15.5,
       "carbs": 20.0,
       "fat": 12.0,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "healthIndicators": {
+        "glycemicIndex": 65,
+        "purineLevel": "low",
+        "sodiumMg": 450,
+        "cholesterolMg": 85,
+        "saturatedFatG": 4.2,
+        "transFatG": 0,
+        "potassiumMg": 300,
+        "phosphorusMg": 150,
+        "oxalateLevel": "low",
+        "fodmapLevel": "low",
+        "histamineLevel": "low",
+        "isNightshade": false,
+        "mercuryLevel": "none",
+        "isRawUndercooked": false,
+        "caffeineMg": 0,
+        "containsAlcohol": false,
+        "vitaminKMcg": 50,
+        "isGrapefruit": false,
+        "tyramineLevel": "low",
+        "isGoitrogen": false,
+        "phenylalanineMg": 100,
+        "copperMg": 0.2,
+        "allergens": []
+      }
     }
   ],
   "confidence": "high|medium|low",
@@ -139,6 +165,31 @@ Guidelines:
 - Use metric units (grams) for nutrients
 - Set confidence based on how clearly items are visible
 - Focus on main ingredients and dishes
+
+Health Indicator Guidelines:
+- glycemicIndex: 0-100 scale. >70=high, 55-70=medium, <55=low. Omit if not applicable.
+- purineLevel: "high" for organ meats/shellfish/beer, "medium" for red meat/legumes, "low" for most foods
+- sodiumMg: Sodium content in milligrams
+- cholesterolMg: Cholesterol in milligrams
+- saturatedFatG: Saturated fat in grams
+- transFatG: Trans fat in grams (0 if none)
+- potassiumMg: Potassium in milligrams
+- phosphorusMg: Phosphorus in milligrams
+- oxalateLevel: "high" for spinach/rhubarb/chocolate/nuts, "medium" or "low" otherwise
+- fodmapLevel: "high" for garlic/onion/wheat/beans, "medium" or "low" for safe foods
+- histamineLevel: "high" for aged cheese/fermented/cured meats/alcohol, "medium" for citrus, "low" for fresh foods
+- isNightshade: true for tomatoes, potatoes, peppers, eggplant
+- mercuryLevel: "high" for swordfish/shark/king mackerel, "medium" for tuna, "low" for salmon/shrimp, "none" for non-seafood
+- isRawUndercooked: true for sushi, rare meat, raw eggs
+- caffeineMg: Caffeine content in milligrams
+- containsAlcohol: true if contains alcohol
+- vitaminKMcg: Vitamin K in micrograms
+- isGrapefruit: true for grapefruit or pomelo
+- tyramineLevel: "high" for aged cheese/cured meats/fermented, "medium" for fresh cheese, "low" for most foods
+- isGoitrogen: true for raw cruciferous vegetables (broccoli, cabbage, kale)
+- phenylalanineMg: Phenylalanine in milligrams (important for high-protein foods)
+- copperMg: Copper in milligrams
+- allergens: List any of: "nuts", "dairy", "gluten", "shellfish", "eggs", "soy", "sesame", "fish"
 ''';
   }
 
@@ -162,6 +213,14 @@ Guidelines:
       }
 
       final items = (data['items'] as List<dynamic>).map((item) {
+        // Parse health indicators if present
+        HealthIndicators? healthIndicators;
+        if (item['healthIndicators'] != null) {
+          healthIndicators = HealthIndicators.fromJson(
+            item['healthIndicators'] as Map<String, dynamic>,
+          );
+        }
+
         return FoodItem(
           name: item['name'] ?? 'Unknown Food',
           portion: item['portion'] ?? '1 serving',
@@ -172,6 +231,7 @@ Guidelines:
           fat: item['fat'] ?? 0.0,
           fiber: item['fiber'] ?? 0.0,
           isEdited: false,
+          healthIndicators: healthIndicators,
         );
       }).toList();
 
