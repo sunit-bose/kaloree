@@ -1,6 +1,7 @@
 package com.kaloree.app.pad
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.google.android.play.core.assetpacks.AssetPackManager
 import com.google.android.play.core.assetpacks.AssetPackManagerFactory
@@ -22,10 +23,20 @@ import kotlinx.coroutines.withContext
 
 /**
  * AssetPackPlugin - Flutter Plugin for Play Asset Delivery
- * 
+ *
  * Manages the download and access of the AI model asset pack
  * delivered via Google Play Asset Delivery (PAD).
- * 
+ *
+ * Development Mode:
+ *   - In debug builds, bypasses PAD entirely
+ *   - Returns "completed" status immediately
+ *   - Uses context.filesDir/models/ path
+ *   - Allows local testing without Play Store
+ *
+ * Production Mode:
+ *   - Uses real PAD to download models
+ *   - Requires app to be published on Play Store
+ *
  * Asset Pack: ai_model_pack (fast-follow delivery)
  * Contents:
  *   - smolvlm-256m-instruct-q8_0.gguf (~300 MB)
@@ -40,6 +51,15 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
         private const val PACK_NAME = "ai_model_pack"
     }
     
+    // Development mode flag - bypasses PAD in debug builds
+    // Uses ApplicationInfo flag instead of BuildConfig for reliability
+    private val isDevMode: Boolean
+        get() = if (::context.isInitialized) {
+            (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        } else {
+            false
+        }
+    
     private lateinit var context: Context
     private lateinit var assetPackManager: AssetPackManager
     private lateinit var methodChannel: MethodChannel
@@ -51,7 +71,11 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
-        assetPackManager = AssetPackManagerFactory.getInstance(context)
+        
+        // Only initialize PAD manager in production mode
+        if (!isDevMode) {
+            assetPackManager = AssetPackManagerFactory.getInstance(context)
+        }
         
         // Setup method channel
         methodChannel = MethodChannel(binding.binaryMessenger, METHOD_CHANNEL)
@@ -61,7 +85,11 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
         eventChannel = EventChannel(binding.binaryMessenger, EVENT_CHANNEL)
         eventChannel.setStreamHandler(this)
         
-        Log.d(TAG, "AssetPackPlugin attached to engine")
+        if (isDevMode) {
+            Log.d(TAG, "🔧 AssetPackPlugin attached in DEVELOPMENT MODE - PAD bypassed")
+        } else {
+            Log.d(TAG, "AssetPackPlugin attached to engine (Production mode)")
+        }
     }
     
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -98,8 +126,25 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     
     /**
      * Check the current status of the asset pack
+     *
+     * In dev mode: Always returns "completed" (models are "ready")
+     * In prod mode: Checks actual PAD status
      */
     private fun checkStatus(result: MethodChannel.Result) {
+        // Development mode - bypass PAD, return completed immediately
+        if (isDevMode) {
+            Log.d(TAG, "🔧 DEV MODE: Returning 'completed' status (PAD bypassed)")
+            result.success(mapOf(
+                "status" to "completed",
+                "progress" to 1.0,
+                "bytesDownloaded" to 365L * 1024 * 1024,
+                "totalBytes" to 365L * 1024 * 1024,
+                "devMode" to true
+            ))
+            return
+        }
+        
+        // Production mode - check actual PAD status
         scope.launch {
             try {
                 val packStates = withContext(Dispatchers.IO) {
@@ -125,8 +170,19 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     
     /**
      * Start downloading the asset pack
+     *
+     * In dev mode: Returns success immediately (no download needed)
+     * In prod mode: Initiates actual PAD download
      */
     private fun startDownload(result: MethodChannel.Result) {
+        // Development mode - no download needed
+        if (isDevMode) {
+            Log.d(TAG, "🔧 DEV MODE: Download skipped (PAD bypassed)")
+            result.success(true)
+            return
+        }
+        
+        // Production mode - start actual download
         try {
             Log.d(TAG, "Starting asset pack download: $PACK_NAME")
             assetPackManager.fetch(listOf(PACK_NAME))
@@ -139,8 +195,20 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     
     /**
      * Get the path to the downloaded model files
+     *
+     * In dev mode: Returns context.filesDir/models/ path
+     * In prod mode: Returns actual PAD asset path
      */
     private fun getModelPath(result: MethodChannel.Result) {
+        // Development mode - return filesDir path
+        if (isDevMode) {
+            val devModelPath = "${context.filesDir.absolutePath}/models/"
+            Log.d(TAG, "🔧 DEV MODE: Model path: $devModelPath")
+            result.success(devModelPath)
+            return
+        }
+        
+        // Production mode - get actual PAD path
         scope.launch {
             try {
                 val location = assetPackManager.getPackLocation(PACK_NAME)
@@ -163,8 +231,19 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     
     /**
      * Cancel ongoing download
+     *
+     * In dev mode: Returns success immediately (nothing to cancel)
+     * In prod mode: Cancels actual PAD download
      */
     private fun cancelDownload(result: MethodChannel.Result) {
+        // Development mode - nothing to cancel
+        if (isDevMode) {
+            Log.d(TAG, "🔧 DEV MODE: Cancel skipped (no download in progress)")
+            result.success(true)
+            return
+        }
+        
+        // Production mode - cancel actual download
         try {
             Log.d(TAG, "Cancelling asset pack download")
             assetPackManager.cancel(listOf(PACK_NAME))
@@ -178,6 +257,12 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     // ==================== Progress Listener ====================
     
     private fun registerListener() {
+        // Skip listener in dev mode
+        if (isDevMode) {
+            Log.d(TAG, "🔧 DEV MODE: Progress listener skipped")
+            return
+        }
+        
         if (stateUpdateListener != null) return
         
         stateUpdateListener = AssetPackStateUpdateListener { state: AssetPackState ->
@@ -188,6 +273,9 @@ class AssetPackPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCha
     }
     
     private fun unregisterListener() {
+        // Skip in dev mode
+        if (isDevMode) return
+        
         stateUpdateListener?.let {
             assetPackManager.unregisterListener(it)
             stateUpdateListener = null

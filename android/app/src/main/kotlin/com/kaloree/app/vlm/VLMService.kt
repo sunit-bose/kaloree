@@ -1,6 +1,7 @@
 package com.kaloree.app.vlm
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -8,18 +9,29 @@ import com.google.android.play.core.assetpacks.AssetPackManager
 import com.google.android.play.core.assetpacks.AssetPackManagerFactory
 import com.google.android.play.core.assetpacks.model.AssetPackStatus
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.random.Random
 
 /**
  * VLMService - On-Device Vision Language Model Service
  *
- * This is a STUB implementation for the on-device VLM.
- * The actual VLM SDK integration is pending availability of a suitable library.
+ * Development Mode (BuildConfig.DEBUG):
+ *   - Returns realistic stub responses for testing
+ *   - Simulates model loading delay
+ *   - Bypasses PAD entirely
+ *   - Allows end-to-end flow testing without real models
+ *
+ * Production Mode:
+ *   - Requires real VLM SDK integration
+ *   - Uses Play Asset Delivery for model files
+ *   - Falls back to cloud API if SDK not available
  *
  * Model Loading Priority:
  * 1. Play Asset Delivery (PAD) - ai_model_pack
@@ -31,9 +43,6 @@ import java.io.FileOutputStream
  * - MLC LLM
  * - MediaPipe LLM Inference
  * - Custom llama.cpp JNI wrapper
- *
- * For now, this returns a "not available" response that will trigger
- * fallback to the cloud API in LLMService.dart.
  */
 class VLMService(private val context: Context) {
     
@@ -44,7 +53,7 @@ class VLMService(private val context: Context) {
         private const val CLIP_FILE = "smolvlm-256m-clip-q8_0.gguf"
         private const val ASSET_PACK_NAME = "ai_model_pack"
         
-        // Model state - STUB: Always false until real SDK is integrated
+        // Model state
         @Volatile
         private var isInitialized = false
         
@@ -52,9 +61,19 @@ class VLMService(private val context: Context) {
         @Volatile
         private var modelBasePath: String? = null
         
-        // Flag to indicate SDK is not yet available
-        const val SDK_AVAILABLE = false
+        // sdkAvailable is set per-instance based on debug mode
+        @Volatile
+        var sdkAvailable_FLAG: Boolean = false
     }
+    
+    // Development mode flag - uses ApplicationInfo for reliability
+    private val isDevMode: Boolean
+        get() = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    
+    // In dev mode, SDK is "available" for testing with stubs
+    // In prod mode, SDK is not available until real integration
+    val sdkAvailable: Boolean
+        get() = isDevMode
     
     private val gson = Gson()
     private val assetPackManager: AssetPackManager by lazy {
@@ -64,15 +83,42 @@ class VLMService(private val context: Context) {
     /**
      * Initialize the VLM model.
      *
-     * Model loading priority:
-     * 1. Play Asset Delivery (PAD) - for production
-     * 2. APK assets - for development/testing
-     * 3. External path - for custom model testing
+     * Development Mode:
+     *   - Simulates model loading with a brief delay
+     *   - Returns success immediately
+     *   - Allows end-to-end testing without real models
      *
-     * STUB: Returns failure until real VLM SDK is integrated.
+     * Production Mode:
+     *   - Model loading priority:
+     *     1. Play Asset Delivery (PAD) - for production
+     *     2. APK assets - for development/testing
+     *     3. External path - for custom model testing
+     *   - Returns failure until real VLM SDK is integrated
      */
     suspend fun initialize(): Result<Boolean> = withContext(Dispatchers.IO) {
-        if (!SDK_AVAILABLE) {
+        // Development mode - simulate model loading
+        if (isDevMode) {
+            if (isInitialized) {
+                Log.d(TAG, "🔧 DEV MODE: VLM already initialized")
+                return@withContext Result.success(true)
+            }
+            
+            Log.d(TAG, "🔧 DEV MODE: Simulating VLM model initialization...")
+            
+            // Simulate loading time (1-2 seconds)
+            delay(1500)
+            
+            modelBasePath = "${context.filesDir.absolutePath}/models/"
+            isInitialized = true
+            
+            Log.d(TAG, "🔧 DEV MODE: VLM model initialized (stub)")
+            Log.d(TAG, "🔧 DEV MODE: Model path: $modelBasePath")
+            
+            return@withContext Result.success(true)
+        }
+        
+        // Production mode - real SDK required
+        if (!sdkAvailable) {
             Log.w(TAG, "VLM SDK not yet integrated. Using cloud fallback.")
             return@withContext Result.failure(
                 UnsupportedOperationException("On-device VLM SDK is not yet available. Falling back to cloud API.")
@@ -121,14 +167,38 @@ class VLMService(private val context: Context) {
     
     /**
      * Analyze a food image and return nutritional information.
-     * 
-     * STUB: Returns failure to trigger cloud fallback.
-     * 
+     *
+     * Development Mode:
+     *   - Returns realistic stub responses from a variety of common foods
+     *   - Simulates inference time (500-1500ms)
+     *   - Allows end-to-end UI testing
+     *
+     * Production Mode:
+     *   - Returns failure to trigger cloud fallback until SDK integrated
+     *
      * @param imageBytes Raw image bytes (JPEG/PNG)
      * @return JSON string with meal analysis results
      */
     suspend fun analyzeFood(imageBytes: ByteArray): Result<String> = withContext(Dispatchers.IO) {
-        if (!SDK_AVAILABLE || !isInitialized) {
+        // Development mode - return realistic stub response
+        if (isDevMode) {
+            Log.d(TAG, "🔧 DEV MODE: Analyzing food image (${imageBytes.size} bytes)...")
+            
+            // Simulate inference time (500-1500ms)
+            val inferenceTime = Random.nextLong(500, 1500)
+            delay(inferenceTime)
+            
+            // Generate a realistic stub response
+            val stubResponse = generateDevModeStubResponse()
+            
+            Log.d(TAG, "🔧 DEV MODE: Analysis complete in ${inferenceTime}ms")
+            Log.d(TAG, "🔧 DEV MODE: Response: ${stubResponse.take(100)}...")
+            
+            return@withContext Result.success(stubResponse)
+        }
+        
+        // Production mode - require real SDK
+        if (!sdkAvailable || !isInitialized) {
             return@withContext Result.failure(
                 UnsupportedOperationException("On-device VLM not available. Use cloud API.")
             )
@@ -167,9 +237,195 @@ class VLMService(private val context: Context) {
     }
     
     /**
-     * Check if VLM is ready for inference.
+     * Generate a realistic stub response for development mode testing.
+     * Returns varied responses from common foods to test the UI.
      */
-    fun isReady(): Boolean = SDK_AVAILABLE && isInitialized
+    private fun generateDevModeStubResponse(): String {
+        val foods = listOf(
+            DevModeFoodStub(
+                name = "Grilled Chicken Salad",
+                servingSize = "1 bowl (350g)",
+                calories = 320,
+                protein = 35.0,
+                carbs = 15.0,
+                fat = 14.0,
+                fiber = 6.0,
+                sugar = 5.0,
+                sodium = 520,
+                ingredients = listOf("grilled chicken breast", "mixed greens", "cherry tomatoes", "cucumber", "olive oil dressing"),
+                healthNotes = listOf("High protein", "Low carb", "Good source of fiber"),
+                isHealthy = true,
+                confidence = 0.92
+            ),
+            DevModeFoodStub(
+                name = "Cheese Pizza Slice",
+                servingSize = "1 large slice (120g)",
+                calories = 285,
+                protein = 12.0,
+                carbs = 36.0,
+                fat = 10.0,
+                fiber = 2.0,
+                sugar = 4.0,
+                sodium = 640,
+                ingredients = listOf("pizza dough", "tomato sauce", "mozzarella cheese"),
+                healthNotes = listOf("Moderate calories", "Good source of calcium", "High sodium"),
+                isHealthy = false,
+                confidence = 0.88
+            ),
+            DevModeFoodStub(
+                name = "Banana Smoothie",
+                servingSize = "1 glass (300ml)",
+                calories = 180,
+                protein = 5.0,
+                carbs = 38.0,
+                fat = 2.0,
+                fiber = 3.0,
+                sugar = 28.0,
+                sodium = 45,
+                ingredients = listOf("banana", "milk", "honey", "ice"),
+                healthNotes = listOf("Good source of potassium", "Natural sugars", "Post-workout recovery"),
+                isHealthy = true,
+                confidence = 0.95
+            ),
+            DevModeFoodStub(
+                name = "Vegetable Biryani",
+                servingSize = "1 plate (300g)",
+                calories = 420,
+                protein = 9.0,
+                carbs = 65.0,
+                fat = 14.0,
+                fiber = 5.0,
+                sugar = 3.0,
+                sodium = 780,
+                ingredients = listOf("basmati rice", "mixed vegetables", "spices", "ghee", "fried onions"),
+                healthNotes = listOf("Complex carbohydrates", "Rich in spices", "Vegetarian protein"),
+                isHealthy = true,
+                confidence = 0.85
+            ),
+            DevModeFoodStub(
+                name = "Masala Dosa",
+                servingSize = "1 dosa with chutney (200g)",
+                calories = 350,
+                protein = 8.0,
+                carbs = 55.0,
+                fat = 12.0,
+                fiber = 4.0,
+                sugar = 2.0,
+                sodium = 450,
+                ingredients = listOf("fermented rice batter", "potato masala", "coconut chutney", "sambar"),
+                healthNotes = listOf("Fermented food", "Good probiotics", "South Indian staple"),
+                isHealthy = true,
+                confidence = 0.91
+            ),
+            DevModeFoodStub(
+                name = "Paneer Tikka",
+                servingSize = "6 pieces (180g)",
+                calories = 290,
+                protein = 18.0,
+                carbs = 8.0,
+                fat = 22.0,
+                fiber = 2.0,
+                sugar = 3.0,
+                sodium = 380,
+                ingredients = listOf("paneer", "bell peppers", "onions", "yogurt marinade", "spices"),
+                healthNotes = listOf("High protein", "Vegetarian", "Good source of calcium"),
+                isHealthy = true,
+                confidence = 0.89
+            ),
+            DevModeFoodStub(
+                name = "French Fries",
+                servingSize = "Medium serving (150g)",
+                calories = 365,
+                protein = 4.0,
+                carbs = 48.0,
+                fat = 17.0,
+                fiber = 4.0,
+                sugar = 0.5,
+                sodium = 280,
+                ingredients = listOf("potatoes", "vegetable oil", "salt"),
+                healthNotes = listOf("High in calories", "Deep fried", "Limit consumption"),
+                isHealthy = false,
+                confidence = 0.94
+            ),
+            DevModeFoodStub(
+                name = "Fruit Bowl",
+                servingSize = "1 bowl (250g)",
+                calories = 125,
+                protein = 2.0,
+                carbs = 32.0,
+                fat = 0.5,
+                fiber = 5.0,
+                sugar = 24.0,
+                sodium = 5,
+                ingredients = listOf("apple", "banana", "grapes", "orange", "pomegranate"),
+                healthNotes = listOf("Rich in vitamins", "Natural sugars", "High fiber"),
+                isHealthy = true,
+                confidence = 0.96
+            )
+        )
+        
+        // Pick a random food for variety in testing
+        val food = foods[Random.nextInt(foods.size)]
+        
+        // Build JSON response
+        val json = JsonObject().apply {
+            addProperty("food_name", food.name)
+            addProperty("confidence", food.confidence)
+            addProperty("serving_size", food.servingSize)
+            addProperty("calories", food.calories)
+            addProperty("protein_g", food.protein)
+            addProperty("carbs_g", food.carbs)
+            addProperty("fat_g", food.fat)
+            addProperty("fiber_g", food.fiber)
+            addProperty("sugar_g", food.sugar)
+            addProperty("sodium_mg", food.sodium)
+            
+            val ingredientsArray = JsonArray()
+            food.ingredients.forEach { ingredientsArray.add(it) }
+            add("ingredients", ingredientsArray)
+            
+            val notesArray = JsonArray()
+            food.healthNotes.forEach { notesArray.add(it) }
+            add("health_notes", notesArray)
+            
+            addProperty("is_healthy", food.isHealthy)
+            addProperty("_dev_mode", true)
+            addProperty("_model", "SmolVLM-256M-Stub")
+        }
+        
+        return gson.toJson(json)
+    }
+    
+    /**
+     * Data class for dev mode food stubs
+     */
+    private data class DevModeFoodStub(
+        val name: String,
+        val servingSize: String,
+        val calories: Int,
+        val protein: Double,
+        val carbs: Double,
+        val fat: Double,
+        val fiber: Double,
+        val sugar: Double,
+        val sodium: Int,
+        val ingredients: List<String>,
+        val healthNotes: List<String>,
+        val isHealthy: Boolean,
+        val confidence: Double
+    )
+    
+    /**
+     * Check if VLM is ready for inference.
+     * In dev mode, returns true once initialized (stub mode).
+     */
+    fun isReady(): Boolean {
+        return if (isDevMode) {
+            isInitialized
+        } else {
+            sdkAvailable && isInitialized
+        }
+    }
     
     /**
      * Get model information.
@@ -178,12 +434,18 @@ class VLMService(private val context: Context) {
         "model" to MODEL_NAME,
         "initialized" to isInitialized,
         "onDevice" to true,
-        "sdkAvailable" to SDK_AVAILABLE,
+        "sdkAvailable" to sdkAvailable,
         "quantization" to "Q8_0",
         "memoryMB" to 365,
-        "status" to if (SDK_AVAILABLE) "ready" else "sdk_pending",
+        "status" to when {
+            isDevMode && isInitialized -> "ready_dev_mode"
+            isDevMode -> "dev_mode_not_initialized"
+            sdkAvailable && isInitialized -> "ready"
+            else -> "sdk_pending"
+        },
         "modelPath" to (modelBasePath ?: "not_loaded"),
-        "assetPackName" to ASSET_PACK_NAME
+        "assetPackName" to ASSET_PACK_NAME,
+        "devMode" to isDevMode
     )
     
     /**
