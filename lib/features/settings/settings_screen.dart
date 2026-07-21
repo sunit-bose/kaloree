@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/database_service.dart';
 import '../../services/tdee_calculator.dart';
 import '../../services/health_alert_service.dart';
+import '../../services/on_device_ai_service.dart';
 import '../../models/meal_analysis.dart';
 import '../../models/health_alert.dart';
 import '../auth/data/auth_repository.dart';
@@ -37,7 +39,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 32),
           Text('🤖 AI Configuration', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text('Add your Google AI API key to enable AI meal analysis. Keys are stored securely on your device.', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          Text(
+            Platform.isAndroid
+                ? 'Using on-device AI for private, offline food analysis. No API key required!'
+                : 'Add your Google AI API key to enable AI meal analysis. Keys are stored securely on your device.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 16),
           _ApiConfigCard(),
 
@@ -71,13 +78,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _PrivacyItem(icon: Icons.photo_camera_outlined, iconColor: Colors.blue.shade400, title: 'Images', description: 'Photos are processed in memory and never stored'),
+                  _PrivacyItem(
+                    icon: Icons.photo_camera_outlined,
+                    iconColor: Colors.blue.shade400,
+                    title: 'Images',
+                    description: Platform.isAndroid
+                        ? 'Photos processed on-device and never leave your phone'
+                        : 'Photos are processed in memory and never stored',
+                  ),
                   const Divider(height: 24),
                   _PrivacyItem(icon: Icons.storage_outlined, iconColor: Colors.green.shade400, title: 'Data Storage', description: 'All data stored locally on your device only'),
                   const Divider(height: 24),
-                  _PrivacyItem(icon: Icons.key_outlined, iconColor: Colors.purple.shade400, title: 'API Keys', description: 'Encrypted using device Keychain/Keystore'),
+                  if (Platform.isAndroid) ...[
+                    _PrivacyItem(
+                      icon: Icons.smartphone_outlined,
+                      iconColor: Colors.teal.shade400,
+                      title: 'On-Device AI',
+                      description: 'AI runs locally - no cloud processing',
+                    ),
+                  ] else ...[
+                    _PrivacyItem(icon: Icons.key_outlined, iconColor: Colors.purple.shade400, title: 'API Keys', description: 'Encrypted using device Keychain/Keystore'),
+                  ],
                   const Divider(height: 24),
-                  _PrivacyItem(icon: Icons.wifi_outlined, iconColor: Colors.orange.shade400, title: 'Network', description: 'Only connects to Google AI API (HTTPS)'),
+                  _PrivacyItem(
+                    icon: Platform.isAndroid ? Icons.wifi_off_outlined : Icons.wifi_outlined,
+                    iconColor: Colors.orange.shade400,
+                    title: 'Network',
+                    description: Platform.isAndroid
+                        ? 'Works completely offline - no internet required'
+                        : 'Only connects to Google AI API (HTTPS)',
+                  ),
                 ],
               ),
             ),
@@ -135,7 +165,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-/// API Configuration Card - Google AI (Gemini) only
+/// API Configuration Card - On-Device AI (Android) or Google AI (iOS)
 class _ApiConfigCard extends ConsumerStatefulWidget {
   @override
   ConsumerState<_ApiConfigCard> createState() => _ApiConfigCardState();
@@ -144,6 +174,8 @@ class _ApiConfigCard extends ConsumerStatefulWidget {
 class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
   bool _isLoading = true;
   bool _hasApiKey = false;
+  bool _isOnDeviceReady = false;
+  Map<String, dynamic>? _modelInfo;
 
   @override
   void initState() {
@@ -152,12 +184,25 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
   }
 
   Future<void> _loadConfig() async {
-    final storage = ref.read(secureStorageProvider);
-    final hasKey = await storage.hasGeminiApiKey();
-    setState(() {
-      _hasApiKey = hasKey;
-      _isLoading = false;
-    });
+    if (Platform.isAndroid) {
+      // Check on-device AI status
+      final onDeviceAI = OnDeviceAIService.instance;
+      final isReady = await onDeviceAI.checkReady();
+      final modelInfo = await onDeviceAI.getModelInfo();
+      setState(() {
+        _isOnDeviceReady = isReady;
+        _modelInfo = modelInfo;
+        _isLoading = false;
+      });
+    } else {
+      // iOS: Check API key
+      final storage = ref.read(secureStorageProvider);
+      final hasKey = await storage.hasGeminiApiKey();
+      setState(() {
+        _hasApiKey = hasKey;
+        _isLoading = false;
+      });
+    }
   }
 
   void _showApiKeyDialog() {
@@ -315,6 +360,158 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
       );
     }
 
+    // Android: Show on-device AI status
+    if (Platform.isAndroid) {
+      return _buildOnDeviceAICard(theme);
+    }
+    
+    // iOS: Show API key configuration
+    return _buildCloudApiCard(theme);
+  }
+  
+  /// Build card for on-device AI (Android)
+  Widget _buildOnDeviceAICard(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // On-Device AI Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green.shade400, Colors.teal.shade400],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.smartphone, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('On-Device AI', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text('SmolVLM-256M • Private & Offline', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                // Privacy badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shield, size: 12, color: Colors.green.shade700),
+                      const SizedBox(width: 4),
+                      Text('Private', style: TextStyle(fontSize: 10, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Status Card
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _isOnDeviceReady ? Colors.green.shade50 : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _isOnDeviceReady ? Colors.green.shade200 : Colors.blue.shade200,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isOnDeviceReady ? Icons.check_circle : Icons.hourglass_top,
+                    color: _isOnDeviceReady ? Colors.green.shade600 : Colors.blue.shade600,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isOnDeviceReady ? 'Ready to analyze meals' : 'Loading AI model...',
+                          style: TextStyle(
+                            color: _isOnDeviceReady ? Colors.green.shade700 : Colors.blue.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _isOnDeviceReady
+                            ? 'All processing happens on your device'
+                            : 'Model will load when you take a photo',
+                          style: TextStyle(
+                            color: _isOnDeviceReady ? Colors.green.shade600 : Colors.blue.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Privacy Features
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _buildFeatureRow(Icons.wifi_off, 'Works offline - no internet needed'),
+                  const SizedBox(height: 8),
+                  _buildFeatureRow(Icons.no_photography, 'Photos never leave your device'),
+                  const SizedBox(height: 8),
+                  _buildFeatureRow(Icons.key_off, 'No API key required'),
+                  const SizedBox(height: 8),
+                  _buildFeatureRow(Icons.speed, '~3 second analysis time'),
+                ],
+              ),
+            ),
+            
+            // Model Info (if available)
+            if (_modelInfo != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Model: ${_modelInfo!['model'] ?? 'SmolVLM-256M'} • ~365MB RAM',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildFeatureRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(width: 8),
+        Text(text, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+      ],
+    );
+  }
+  
+  /// Build card for cloud API (iOS)
+  Widget _buildCloudApiCard(ThemeData theme) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -378,8 +575,8 @@ class _ApiConfigCardState extends ConsumerState<_ApiConfigCard> {
                           ),
                         ),
                         Text(
-                          _hasApiKey 
-                            ? 'Your key is stored securely' 
+                          _hasApiKey
+                            ? 'Your key is stored securely'
                             : 'Add your Google AI API key to enable AI features',
                           style: TextStyle(
                             color: _hasApiKey ? Colors.green.shade600 : Colors.orange.shade600,

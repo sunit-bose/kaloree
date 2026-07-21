@@ -2,6 +2,9 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // RunAnywhere SDK repository
+        maven { url = uri("https://jitpack.io") }
+        maven { url = uri("https://maven.runanywhere.io/releases") }
     }
 }
 

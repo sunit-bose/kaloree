@@ -29,7 +29,10 @@
         android:enableOnBackInvokedCallback="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="false"
-        android:fullBackupContent="false">
+        android:fullBackupContent="false"
+        android:largeHeap="true">
+        
+        <!-- largeHeap: Required for RunAnywhere VLM model loading (~365MB RAM) -->
         
         <!-- Disable backup to prevent API key leakage -->
         <!-- API keys are stored in Android Keystore, not in backup -->

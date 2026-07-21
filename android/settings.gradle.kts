@@ -25,3 +25,8 @@ plugins {
 }
 
 include(":app")
+
+// Play Asset Delivery - AI Model Pack
+// Contains SmolVLM-256M model files (~365 MB)
+// Delivery mode: fast-follow (auto-downloads after app install)
+include(":ai-model-pack")

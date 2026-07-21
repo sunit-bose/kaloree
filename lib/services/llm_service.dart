@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/health_alert.dart';
 import '../models/meal_analysis.dart';
+import 'on_device_ai_service.dart';
 import 'secure_storage_service.dart';
 
 /// Custom exception for LLM service errors
@@ -15,23 +18,92 @@ class LLMException implements Exception {
   String toString() => message;
 }
 
-/// LLM Service - handles meal image analysis with Google Gemini
-/// 
-/// Google AI Studio API Key Integration:
+/// LLM Service - handles meal image analysis with Google Gemini or On-Device AI
+///
+/// On Android: Uses on-device AI (RunAnywhere SDK with SmolVLM-256M) for privacy
+/// On iOS: Falls back to Google Gemini API
+///
+/// Google AI Studio API Key Integration (iOS/Fallback):
 /// - Get your API key from https://aistudio.google.com/app/apikey
 /// - Keys are stored securely using device keychain
 class LLMService {
   final Dio _dio;
   final SecureStorageService _secureStorage;
+  final OnDeviceAIService _onDeviceAI = OnDeviceAIService.instance;
 
   LLMService(this._dio, this._secureStorage) {
     // Configure Dio with reasonable timeouts
     _dio.options.connectTimeout = const Duration(seconds: 30);
     _dio.options.receiveTimeout = const Duration(seconds: 60);
+    
+    // Initialize on-device AI in background (Android only)
+    _initializeOnDeviceAI();
   }
+  
+  /// Initialize on-device AI model in background
+  Future<void> _initializeOnDeviceAI() async {
+    if (_onDeviceAI.isAvailable) {
+      debugPrint('LLMService: Initializing on-device AI in background...');
+      final success = await _onDeviceAI.initialize();
+      debugPrint('LLMService: On-device AI initialization ${success ? "succeeded" : "failed"}');
+    }
+  }
+  
+  /// Check if on-device AI is available and ready
+  bool get isOnDeviceAIAvailable => _onDeviceAI.isAvailable && _onDeviceAI.isReady;
+  
+  /// Check if this platform uses on-device AI by default
+  bool get usesOnDeviceAI => Platform.isAndroid;
 
   /// Analyze meal image and return structured nutritional data
+  ///
+  /// On Android: Uses on-device AI (no API key required)
+  /// On iOS: Uses Google Gemini API (requires API key)
   Future<MealAnalysis> analyzeMealImage(Uint8List imageBytes) async {
+    // On Android, try on-device AI first
+    if (Platform.isAndroid && _onDeviceAI.isAvailable) {
+      try {
+        return await _analyzeWithOnDeviceAI(imageBytes);
+      } catch (e) {
+        debugPrint('LLMService: On-device AI failed, falling back to cloud: $e');
+        // Fall through to cloud API if on-device fails
+      }
+    }
+    
+    // Use cloud API (iOS or fallback)
+    return await _analyzeWithCloudAPI(imageBytes);
+  }
+  
+  /// Analyze using on-device AI (SmolVLM-256M via RunAnywhere)
+  Future<MealAnalysis> _analyzeWithOnDeviceAI(Uint8List imageBytes) async {
+    debugPrint('LLMService: Using on-device AI for analysis');
+    
+    final result = await _onDeviceAI.analyzeFood(imageBytes);
+    
+    // Convert on-device result to MealAnalysis
+    return MealAnalysis(
+      items: [
+        FoodItem(
+          name: result.foodName,
+          portion: result.servingSize,
+          portionGrams: 100, // Default portion grams
+          calories: result.calories,
+          protein: result.proteinG,
+          carbs: result.carbsG,
+          fat: result.fatG,
+          fiber: result.fiberG,
+          isEdited: false,
+          // Note: On-device model has limited health indicators
+          // Full health indicators will be available with LoRA adapter updates
+        ),
+      ],
+      confidence: result.confidence >= 0.8 ? 'high' : (result.confidence >= 0.5 ? 'medium' : 'low'),
+      source: 'on_device',
+    );
+  }
+  
+  /// Analyze using cloud API (Google Gemini)
+  Future<MealAnalysis> _analyzeWithCloudAPI(Uint8List imageBytes) async {
     final apiKey = await _secureStorage.getGeminiApiKey();
 
     if (apiKey == null || apiKey.isEmpty) {

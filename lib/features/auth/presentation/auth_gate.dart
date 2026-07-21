@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth_repository.dart';
 import '../../../app/theme.dart';
 import '../../../widgets/brand_hero.dart';
+import '../../../services/model_bootstrap_service.dart';
+import '../../../widgets/cloud_fallback_dialog.dart';
 
 /// Auth Gate - Handles authentication UI flow
 /// 
@@ -29,9 +32,58 @@ class AuthGate extends ConsumerWidget {
         if (user == null) {
           return const _LoginScreen();
         }
-        return child;
+        // User is logged in - wrap child with bootstrap handler
+        return _AuthenticatedWrapper(child: child);
       },
     );
+  }
+}
+
+/// Wrapper that triggers model bootstrap after login (Android only)
+class _AuthenticatedWrapper extends ConsumerStatefulWidget {
+  final Widget child;
+  
+  const _AuthenticatedWrapper({required this.child});
+  
+  @override
+  ConsumerState<_AuthenticatedWrapper> createState() => _AuthenticatedWrapperState();
+}
+
+class _AuthenticatedWrapperState extends ConsumerState<_AuthenticatedWrapper> {
+  bool _bootstrapStarted = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    _triggerModelBootstrap();
+  }
+  
+  Future<void> _triggerModelBootstrap() async {
+    if (_bootstrapStarted) return;
+    _bootstrapStarted = true;
+    
+    // Only bootstrap on Android
+    if (!Platform.isAndroid) return;
+    
+    debugPrint('AuthGate: Triggering model bootstrap after login');
+    
+    // Get bootstrap service and set up consent callback
+    final bootstrapService = ref.read(modelBootstrapServiceProvider);
+    
+    // Set callback for cloud fallback consent dialog
+    bootstrapService.setCloudFallbackConsentCallback(() {
+      if (mounted) {
+        showCloudFallbackDialog(context);
+      }
+    });
+    
+    // Start the proactive download
+    await bootstrapService.initializeAfterLogin();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 

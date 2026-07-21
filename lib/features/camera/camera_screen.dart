@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import '../../services/llm_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/mlkit_food_detector.dart';
+import '../../services/model_status_provider.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../search/search_screen.dart';
@@ -191,23 +192,54 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
     setState(() => _isAnalyzing = true);
 
     try {
-      // Step 1: Check API configuration FIRST
-      final secureStorage = ref.read(secureStorageProvider);
-      final isConfigured = await secureStorage.isConfigured();
-      final activeKey = await secureStorage.getActiveApiKey();
+      // Step 1: Check AI availability based on platform
+      // On Android: Check on-device AI status first
+      // On iOS: Check cloud API configuration
       
-      print('🔑 DEBUG: API configured: $isConfigured');
-      print('🔑 DEBUG: Provider: Google AI (Gemini)');
-      print('🔑 DEBUG: Has active key: ${activeKey != null && activeKey.isNotEmpty}');
-
-      if (!isConfigured) {
+      bool useOnDeviceAI = false;
+      bool cloudApiConfigured = false;
+      
+      if (Platform.isAndroid) {
+        // Check on-device AI status
+        final modelStatus = ref.read(modelStatusProvider);
+        print('🤖 DEBUG: Model status: ${modelStatus.badgeText}');
+        
+        if (modelStatus.isOnDeviceUsable) {
+          // On-device AI is ready - use it!
+          useOnDeviceAI = true;
+          print('✅ DEBUG: On-device AI ready, no API key needed');
+        } else if (modelStatus.usingCloud) {
+          // User consented to cloud fallback - check API key
+          print('☁️ DEBUG: Using cloud fallback, checking API key');
+          final secureStorage = ref.read(secureStorageProvider);
+          cloudApiConfigured = await secureStorage.isConfigured();
+        } else if (modelStatus.isDownloading || modelStatus.isLoading) {
+          // Model is still downloading/loading - show progress dialog
+          setState(() => _isAnalyzing = false);
+          _showModelLoadingDialog(modelStatus);
+          return;
+        } else if (modelStatus.needsDownload || modelStatus.isDownloadFailed) {
+          // Model not available and not using cloud - show download prompt
+          setState(() => _isAnalyzing = false);
+          _showModelNotReadyDialog();
+          return;
+        }
+      } else {
+        // iOS - always use cloud API
+        final secureStorage = ref.read(secureStorageProvider);
+        cloudApiConfigured = await secureStorage.isConfigured();
+        print('🍎 DEBUG: iOS - checking cloud API configuration');
+      }
+      
+      // If using cloud API, verify it's configured
+      if (!useOnDeviceAI && !cloudApiConfigured) {
         setState(() => _isAnalyzing = false);
         print('⚠️ DEBUG: Showing API key dialog');
         _showApiKeyDialog();
         return;
       }
 
-      print('✅ DEBUG: API configured, proceeding with food detection');
+      print('✅ DEBUG: AI ready (onDevice: $useOnDeviceAI), proceeding with food detection');
 
       // Step 2: ML Kit pre-screening (fast, on-device, free)
       final mlKitDetector = ref.read(mlKitFoodDetectorProvider);
@@ -222,9 +254,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
         return;
       }
 
-      print('✅ DEBUG: Proceeding with LLM analysis');
+      print('✅ DEBUG: Proceeding with AI analysis');
 
       // Step 3: Send to LLM for detailed nutritional analysis
+      // LLMService handles on-device vs cloud routing internally
       final llmService = ref.read(llmServiceProvider);
       final analysis = await llmService.analyzeMealImage(imageBytes);
 
@@ -321,6 +354,108 @@ class _CameraScreenState extends ConsumerState<CameraScreen> with WidgetsBinding
               AppNavigator.toSettings(context);
             },
             child: const Text('Configure API'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showModelLoadingDialog(ModelStatus status) {
+    String message;
+    String title;
+    
+    if (status.isDownloading) {
+      final downloading = status as ModelStatusDownloading;
+      title = 'AI Model Downloading';
+      message = 'The on-device AI model is still downloading.\n\n'
+          'Progress: ${downloading.progressPercent}%\n'
+          '${downloading.progressText}\n\n'
+          'Please wait for the download to complete, or use manual search.';
+    } else if (status.isLoading) {
+      final loading = status as ModelStatusLoading;
+      title = 'AI Model Loading';
+      message = 'The on-device AI model is loading into memory.\n\n'
+          'Progress: ${loading.progressPercent}%\n\n'
+          'This usually takes a few seconds. Please wait.';
+    } else {
+      title = 'AI Model Preparing';
+      message = 'The AI model is being prepared. Please wait a moment.';
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to search as alternative
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SearchScreen()),
+              );
+            },
+            child: const Text('Use Search Instead'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Just close - user can retry when ready
+            },
+            child: const Text('Wait'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showModelNotReadyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.download, color: Colors.blue),
+            SizedBox(width: 12),
+            Expanded(child: Text('AI Model Required')),
+          ],
+        ),
+        content: const Text(
+          'The on-device AI model needs to be downloaded to analyze your meals.\n\n'
+          'Go to Settings to:\n'
+          '• Download the AI model (~365 MB)\n'
+          '• Or configure Cloud AI as an alternative\n\n'
+          'You can also search for foods manually.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to search
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SearchScreen()),
+              );
+            },
+            child: const Text('Use Search'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to settings
+              AppNavigator.toSettings(context);
+            },
+            child: const Text('Go to Settings'),
           ),
         ],
       ),
