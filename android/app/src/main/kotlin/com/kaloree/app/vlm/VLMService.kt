@@ -48,9 +48,10 @@ class VLMService(private val context: Context) {
     
     companion object {
         private const val TAG = "VLMService"
-        private const val MODEL_NAME = "smolvlm-256m-instruct"
-        private const val MODEL_FILE = "smolvlm-256m-instruct-q8_0.gguf"
-        private const val CLIP_FILE = "smolvlm-256m-clip-q8_0.gguf"
+        // Qwen2-VL 2B - Much better accuracy for food recognition
+        private const val MODEL_NAME = "qwen2-vl-2b-instruct"
+        private const val MODEL_FILE = "qwen2-vl-2b-instruct-q4_k_m.gguf"   // ~1.5GB
+        private const val CLIP_FILE = "qwen2-vl-2b-clip-q8_0.gguf"          // ~400MB
         private const val ASSET_PACK_NAME = "ai_model_pack"
         
         // Model state
@@ -435,8 +436,8 @@ class VLMService(private val context: Context) {
         "initialized" to isInitialized,
         "onDevice" to true,
         "sdkAvailable" to sdkAvailable,
-        "quantization" to "Q8_0",
-        "memoryMB" to 365,
+        "quantization" to "Q4_K_M",
+        "memoryMB" to 500,  // ~350MB model + ~150MB CLIP
         "status" to when {
             isDevMode && isInitialized -> "ready_dev_mode"
             isDevMode -> "dev_mode_not_initialized"
